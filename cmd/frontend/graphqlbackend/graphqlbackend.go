@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/graph-gophers/graphql-go"
+	graphql "github.com/graph-gophers/graphql-go"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/graph-gophers/graphql-go/trace"
@@ -87,8 +87,13 @@ func (r *NodeResolver) ToAccessToken() (*accessTokenResolver, bool) {
 	return n, ok
 }
 
-func (r *NodeResolver) ToCampaign() (*campaignResolver, bool) {
-	n, ok := r.Node.(*campaignResolver)
+func (r *NodeResolver) ToCampaign() (Campaign, bool) {
+	n, ok := r.Node.(Campaign)
+	return n, ok
+}
+
+func (r *NodeResolver) ToCommitStatusContext() (CommitStatusContext, bool) {
+	n, ok := r.Node.(CommitStatusContext)
 	return n, ok
 }
 
@@ -129,6 +134,11 @@ func (r *NodeResolver) ToGitRef() (*GitRefResolver, bool) {
 
 func (r *NodeResolver) ToRepository() (*RepositoryResolver, bool) {
 	n, ok := r.Node.(*RepositoryResolver)
+	return n, ok
+}
+
+func (r *NodeResolver) ToThread() (Thread, bool) {
+	n, ok := r.Node.(Thread)
 	return n, ok
 }
 
@@ -207,6 +217,10 @@ func NodeByID(ctx context.Context, id graphql.ID) (Node, error) {
 	switch relay.UnmarshalKind(id) {
 	case "AccessToken":
 		return accessTokenByID(ctx, id)
+	case GQLTypeCampaign:
+		return CampaignByID(ctx, id)
+	case GQLTypeCommitStatusContext:
+		return CommitStatusContextByID(ctx, id)
 	case "DiscussionComment":
 		return discussionCommentByID(ctx, id)
 	case "DiscussionThread":
@@ -243,6 +257,8 @@ func NodeByID(ctx context.Context, id graphql.ID) (Node, error) {
 		return savedSearchByID(ctx, id)
 	case "Site":
 		return siteByGQLID(ctx, id)
+	case GQLTypeThread:
+		return ThreadByID(ctx, id)
 	default:
 		return nil, errors.New("invalid id")
 	}

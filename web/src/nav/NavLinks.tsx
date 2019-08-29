@@ -21,6 +21,7 @@ import { EventLoggerProps } from '../tracking/eventLogger'
 import { fetchAllStatusMessages, StatusMessagesNavItem } from './StatusMessagesNavItem'
 import { UserNavItem } from './UserNavItem'
 import { GlobalDebugModalButton, SHOW_DEBUG } from '../global/GlobalDebugModalButton'
+import { CampaignsNavItem } from '../enterprise/campaigns/global/nav/CampaignsNavItem'
 
 interface Props
     extends SettingsCascadeProps,
@@ -37,6 +38,7 @@ interface Props
     showDotComMarketing: boolean
     isSourcegraphDotCom: boolean
     showStatusIndicator: boolean
+    className?: string
 }
 
 export class NavLinks extends React.PureComponent<Props> {
@@ -48,7 +50,7 @@ export class NavLinks extends React.PureComponent<Props> {
 
     public render(): JSX.Element | null {
         return (
-            <ul className="nav-links nav align-items-center pl-2 pr-1">
+            <ul className={`nav-links nav align-items-center pl-2 pr-1 ${this.props.className || ''}`}>
                 {/* Show "Search" link on small screens when GlobalNavbar hides the SearchNavbarItem. */}
                 {this.props.location.pathname !== '/search' && (
                     <li className="nav-item d-sm-none">
@@ -64,11 +66,12 @@ export class NavLinks extends React.PureComponent<Props> {
                     </li>
                 )}
                 {(!this.props.showDotComMarketing || !!this.props.authenticatedUser) && (
-                    <li className="nav-item">
-                        <Link to="/explore" className="nav-link">
-                            Explore
-                        </Link>
-                    </li>
+                    // TODO!(sqs): only show these on enterprise
+                    <>
+                        <li className="nav-item">
+                            <CampaignsNavItem className="px-3" />
+                        </li>
+                    </>
                 )}
                 {!this.props.authenticatedUser && (
                     <>
