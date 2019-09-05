@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -18,7 +19,8 @@ func TestDB_Comments(t *testing.T) {
 		t.Skip()
 	}
 	internal.ResetMocks()
-	ctx := dbtesting.TestContext(t)
+	dbtesting.SetupGlobalTestDB(t)
+	ctx := context.Background()
 
 	// for testing equality of all other fields
 	norm := func(vs ...*internal.DBComment) {
@@ -132,7 +134,8 @@ func TestDB_Campaign_Comments(t *testing.T) {
 		t.Skip()
 	}
 	internal.ResetMocks()
-	ctx := dbtesting.TestContext(t)
+	dbtesting.SetupGlobalTestDB(t)
+	ctx := context.Background()
 
 	user, err := db.Users.Create(ctx, db.NewUser{Username: "user"})
 	if err != nil {

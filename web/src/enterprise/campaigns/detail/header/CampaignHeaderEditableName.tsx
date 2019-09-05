@@ -7,11 +7,14 @@ import * as GQL from '../../../../../../shared/src/graphql/schema'
 import { mutateGraphQL } from '../../../../backend/graphql'
 import { Form } from '../../../../components/Form'
 
-export const updateCampaign = (args: GQL.IUpdateCampaignOnMutationArguments): Promise<Pick<GQL.ICampaign, 'name'>> =>
+export const updateCampaign = (
+    args: GQL.IUpdateCampaignOnMutationArguments
+): Promise<Pick<GQL.ICampaign, 'id' | 'name'>> =>
     mutateGraphQL(
         gql`
             mutation UpdateCampaign($input: UpdateCampaignInput!) {
                 updateCampaign(input: $input) {
+                    id
                     name
                 }
             }

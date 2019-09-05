@@ -2,6 +2,7 @@ package campaigns
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -24,6 +25,7 @@ func TestGraphQL_CreateCampaign(t *testing.T) {
 	wantCampaign := &dbCampaign{
 		NamespaceOrgID: wantOrgID,
 		Name:           "n",
+		ExtensionData:  json.RawMessage("{}"),
 	}
 	mocks.campaigns.Create = func(campaign *dbCampaign) (*dbCampaign, error) {
 		if !reflect.DeepEqual(campaign, wantCampaign) {
@@ -40,7 +42,7 @@ func TestGraphQL_CreateCampaign(t *testing.T) {
 			Schema:  graphqlbackend.GraphQLSchema,
 			Query: `
 				mutation {
-					createCampaign(input: { namespace: "T3JnOjE=", name: "n" }) {
+					createCampaign(input: { namespace: "T3JnOjE=", name: "n", extensionData: { rawDiagnostics: [], rawFileDiffs: [] } }) {
 						id
 						name
 					}

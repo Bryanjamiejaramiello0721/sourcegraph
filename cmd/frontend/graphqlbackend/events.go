@@ -16,6 +16,11 @@ type EventConnectionCommonArgs struct {
 }
 
 // event is the common interface for event GraphQL types.
+type event interface {
+	ID() graphql.ID
+	Actor() Actor
+	CreatedAt() DateTime
+}
 
 // EventCommon is the interface for the GraphQL interface EventCommon.
 type EventCommon struct {
@@ -29,15 +34,17 @@ func (v *EventCommon) Actor() *Actor       { return v.Actor_ }
 func (v *EventCommon) CreatedAt() DateTime { return v.CreatedAt_ }
 
 type ToEvent struct {
-	CreateThreadEvent             *CreateThreadEvent
-	CommentEvent                  *CommentEvent
-	AddThreadToCampaignEvent      *AddRemoveThreadToFromCampaignEvent
-	RemoveThreadFromCampaignEvent *AddRemoveThreadToFromCampaignEvent
-	ReviewEvent                   *ReviewEvent
-	RequestReviewEvent            *RequestReviewEvent
-	MergeThreadEvent              *MergeThreadEvent
-	CloseThreadEvent              *CloseThreadEvent
-	ReopenThreadEvent             *ReopenThreadEvent
+	CreateThreadEvent               *CreateThreadEvent
+	CommentEvent                    *CommentEvent
+	AddThreadToCampaignEvent        *AddRemoveThreadToFromCampaignEvent
+	RemoveThreadFromCampaignEvent   *AddRemoveThreadToFromCampaignEvent
+	ReviewEvent                     *ReviewEvent
+	RequestReviewEvent              *RequestReviewEvent
+	MergeThreadEvent                *MergeThreadEvent
+	CloseThreadEvent                *CloseThreadEvent
+	ReopenThreadEvent               *ReopenThreadEvent
+	AddDiagnosticToThreadEvent      *AddRemoveDiagnosticToFromThreadEvent
+	RemoveDiagnosticFromThreadEvent *AddRemoveDiagnosticToFromThreadEvent
 }
 
 func (v ToEvent) ToCreateThreadEvent() (*CreateThreadEvent, bool) {
@@ -74,6 +81,14 @@ func (v ToEvent) ToCloseThreadEvent() (*CloseThreadEvent, bool) {
 
 func (v ToEvent) ToReopenThreadEvent() (*ReopenThreadEvent, bool) {
 	return v.ReopenThreadEvent, v.ReopenThreadEvent != nil
+}
+
+func (v ToEvent) ToAddDiagnosticToThreadEvent() (*AddRemoveDiagnosticToFromThreadEvent, bool) {
+	return v.AddDiagnosticToThreadEvent, v.AddDiagnosticToThreadEvent != nil
+}
+
+func (v ToEvent) ToRemoveDiagnosticFromThreadEvent() (*AddRemoveDiagnosticToFromThreadEvent, bool) {
+	return v.RemoveDiagnosticFromThreadEvent, v.RemoveDiagnosticFromThreadEvent != nil
 }
 
 // EventConnection is the interface for GraphQL connection types for event nodes.

@@ -1,11 +1,14 @@
 import AlertCircleOutlineIcon from 'mdi-react/AlertCircleOutlineIcon'
+import CommentTextMultipleIcon from 'mdi-react/CommentTextMultipleIcon'
 import * as GQL from '../../../../../../shared/src/graphql/schema'
 import { GitPullRequestIcon } from '../../../../util/octicons'
 
 /**
  * The subset of fields that is needed for displaying the thread's state icons.
  */
-export type ThreadStateFields = Pick<GQL.IThread, '__typename' | 'state' | 'kind'>
+export type ThreadStateFields =
+    | Pick<GQL.IThread, '__typename' | 'state' | 'kind' | 'isDraft'>
+    | Pick<GQL.IThreadPreview, '__typename' | 'kind' | 'isDraft'>
 
 type ThreadStateColor = 'success' | 'danger' | 'info' | 'secondary' | 'purple'
 
@@ -16,6 +19,7 @@ const COLOR: Record<GQL.IThread['state'], ThreadStateColor> = {
 }
 
 const ICON: Record<GQL.ThreadKind, React.ComponentType<{ className?: string }>> = {
+    [GQL.ThreadKind.DISCUSSION]: CommentTextMultipleIcon,
     [GQL.ThreadKind.ISSUE]: AlertCircleOutlineIcon,
     [GQL.ThreadKind.CHANGESET]: GitPullRequestIcon,
 }
@@ -31,8 +35,9 @@ const text = (thread: ThreadStateFields): string => {
                 case GQL.ThreadState.CLOSED:
                     return 'Closed'
             }
+        case 'ThreadPreview':
+            return 'Open'
     }
-    return 'Unknown'
 }
 
 const tooltip = (thread: ThreadStateFields): string => `${text(thread)} ${thread.kind.toLowerCase()}`
@@ -48,8 +53,8 @@ export const threadStateInfo = (
     text: string
     tooltip: string
 } => ({
-    color: COLOR[thread.__typename === 'Thread' ? thread.state : GQL.ThreadState.OPEN],
+    color: thread.isDraft ? 'secondary' : COLOR[thread.__typename === 'Thread' ? thread.state : GQL.ThreadState.OPEN],
     icon: ICON[thread.kind],
-    text: text(thread),
+    text: `${text(thread)}${thread.isDraft ? ' (draft)' : ''}`,
     tooltip: tooltip(thread),
 })

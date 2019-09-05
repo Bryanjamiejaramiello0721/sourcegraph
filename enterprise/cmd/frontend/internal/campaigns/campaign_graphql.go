@@ -8,7 +8,9 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/events"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
+	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend/graphqlutil"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments"
+	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/commentobjectdb"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/threads"
 )
 
@@ -73,8 +75,33 @@ func (v *gqlCampaign) Namespace(ctx context.Context) (*graphqlbackend.NamespaceR
 func (v *gqlCampaign) Name() string { return v.db.Name }
 
 func (v *gqlCampaign) ViewerCanUpdate(ctx context.Context) (bool, error) {
-	// TODO!(sqs): determine whether the user is authorized to update this
-	return true, nil
+	return commentobjectdb.ViewerCanUpdate(ctx, v.ID())
+}
+
+func (v *gqlCampaign) ViewerCanComment(ctx context.Context) (bool, error) {
+	return commentobjectdb.ViewerCanComment(ctx)
+}
+
+func (v *gqlCampaign) ViewerCannotCommentReasons(ctx context.Context) ([]graphqlbackend.CannotCommentReason, error) {
+	return commentobjectdb.ViewerCannotCommentReasons(ctx)
+}
+
+func (v *gqlCampaign) Comments(ctx context.Context, arg *graphqlutil.ConnectionArgs) (graphqlbackend.CommentConnection, error) {
+	return graphqlbackend.CommentsForObject(ctx, v.ID(), arg)
+}
+
+func (v *gqlCampaign) Rules(ctx context.Context, arg *graphqlutil.ConnectionArgs) (graphqlbackend.RuleConnection, error) {
+	return graphqlbackend.RulesInRuleContainer(ctx, v.ID(), arg)
+}
+
+func (v *gqlCampaign) IsDraft() bool { return v.db.IsDraft }
+
+func (v *gqlCampaign) StartDate() *graphqlbackend.DateTime {
+	return graphqlbackend.DateTimeOrNil(v.db.StartDate)
+}
+
+func (v *gqlCampaign) DueDate() *graphqlbackend.DateTime {
+	return graphqlbackend.DateTimeOrNil(v.db.DueDate)
 }
 
 func (v *gqlCampaign) URL(ctx context.Context) (string, error) {
@@ -83,6 +110,9 @@ func (v *gqlCampaign) URL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return path.Join(namespace.URL(), "campaigns", string(v.ID())), nil
+	//
+	// TODO!(sqs): use global url?
+	// return path.Join("/campaigns", string(v.ID())), nil
 }
 
 func (v *gqlCampaign) Threads(ctx context.Context, arg *graphqlbackend.ThreadConnectionArgs) (graphqlbackend.ThreadOrThreadPreviewConnection, error) {
@@ -134,6 +164,12 @@ func (v *gqlCampaign) Commits(ctx context.Context) ([]*graphqlbackend.GitCommitR
 
 func (v *gqlCampaign) RepositoryComparisons(ctx context.Context) ([]graphqlbackend.RepositoryComparison, error) {
 	return campaignRepositoryComparisons(ctx, v)
+}
+
+func (v *gqlCampaign) Diagnostics(ctx context.Context, arg *graphqlbackend.ThreadDiagnosticConnectionArgs) (graphqlbackend.ThreadDiagnosticConnection, error) {
+	campaignID := v.ID()
+	arg.Campaign = &campaignID
+	return graphqlbackend.ThreadDiagnostics.ThreadDiagnostics(ctx, arg)
 }
 
 func (v *gqlCampaign) BurndownChart(ctx context.Context) (graphqlbackend.CampaignBurndownChart, error) {

@@ -9,6 +9,7 @@ import { ExtensionsControllerProps } from '../../../shared/src/extensions/contro
 import * as GQL from '../../../shared/src/graphql/schema'
 import { PlatformContextProps } from '../../../shared/src/platform/context'
 import { SettingsCascadeProps } from '../../../shared/src/settings/settings'
+import { LinkWithIconOnlyTooltip } from '../components/LinkWithIconOnlyTooltip'
 import { WebActionsNavItems, WebCommandListPopoverButton } from '../components/shared'
 import { isDiscussionsEnabled } from '../discussions'
 import {
@@ -16,6 +17,7 @@ import {
     KEYBOARD_SHORTCUT_SWITCH_THEME,
     KeyboardShortcutsProps,
 } from '../keyboardShortcuts/keyboardShortcuts'
+import { ThreadsIcon } from '../enterprise/threads/icons'
 import { ThemePreferenceProps, ThemeProps } from '../theme'
 import { EventLoggerProps } from '../tracking/eventLogger'
 import { fetchAllStatusMessages, StatusMessagesNavItem } from './StatusMessagesNavItem'
@@ -70,6 +72,14 @@ export class NavLinks extends React.PureComponent<Props> {
                     <>
                         <li className="nav-item">
                             <CampaignsNavItem className="px-3" />
+                        </li>
+                        <li className="nav-item">
+                            <LinkWithIconOnlyTooltip
+                                to="/threads"
+                                text="Threads"
+                                icon={ThreadsIcon}
+                                className="nav-link btn btn-link px-3 text-decoration-none"
+                            />
                         </li>
                     </>
                 )}

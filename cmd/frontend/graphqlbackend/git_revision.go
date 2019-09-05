@@ -10,9 +10,10 @@ import (
 )
 
 type gitRevSpecExpr struct {
-	expr string
-	oid  GitObjectID
-	repo *RepositoryResolver
+	expr                 string
+	oid                  GitObjectID
+	nullObjectIfEmptyOID bool
+	repo                 *RepositoryResolver
 }
 
 func (r *gitRevSpecExpr) Expr() string { return r.expr }
@@ -21,6 +22,10 @@ func (r *gitRevSpecExpr) Object(ctx context.Context) (*gitObject, error) {
 	if r.oid != "" {
 		// Precomputed.
 		return &gitObject{oid: r.oid, repo: r.repo}, nil
+	}
+
+	if r.nullObjectIfEmptyOID {
+		return nil, nil
 	}
 
 	cachedRepo, err := backend.CachedGitRepo(ctx, r.repo.repo)

@@ -68,4 +68,44 @@ func TestGraphQL_EditComment(t *testing.T) {
 	})
 }
 
+func TestGraphQL_DeleteComment(t *testing.T) {
+	internal.ResetMocks()
+	const wantID = 2
+	wantThreadGQLID := graphqlbackend.MarshalThreadID(1)
+	db.Mocks.Users.GetByCurrentAuthUser = func(ctx context.Context) (*types.User, error) {
+		return &types.User{ID: 1}, nil
+	}
+	mockCommentByGQLID = func(id graphql.ID) (*internal.DBComment, error) {
+		if id != wantThreadGQLID {
+			t.Errorf("got thread ID %q, want %q", id, wantThreadGQLID)
+		}
+		return &internal.DBComment{ID: wantID}, nil
+	}
+	defer func() { mockCommentByGQLID = nil }()
+	internal.Mocks.Comments.DeleteByID = func(id int64) error {
+		if id != wantID {
+			t.Errorf("got ID %d, want %d", id, wantID)
+		}
+		return nil
+	}
+
+	gqltesting.RunTests(t, []*gqltesting.Test{
+		{
+			Schema: graphqlbackend.GraphQLSchema,
+			Query: `
+				mutation {
+					deleteComment(comment: "` + string(wantThreadGQLID) + `") {
+						alwaysNil
+					}
+				}
+			`,
+			ExpectedResult: `
+				{
+					"deleteComment": null
+				}
+			`,
+		},
+	})
+}
+
 func strptr(s string) *string { return &s }

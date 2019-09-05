@@ -48,10 +48,13 @@ export const CampaignThreadList: React.FunctionComponent<Props> = ({
     }
 
     const itemSubtitleComponent = useCallback<React.FunctionComponent<{ thread: GQL.ThreadOrThreadPreview }>>(
-        ({ thread }) =>
-            thread.__typename === 'Thread' && thread.externalURLs && thread.externalURLs.length > 0 ? (
-                <ul className="list-inline d-inline">
-                    {thread.externalURLs.map(({ url, serviceType }) => (
+        ({ thread }) => (
+            <ul className="list-inline d-inline">
+                {thread.__typename === 'Thread' &&
+                    !thread.isPendingExternalCreation &&
+                    thread.externalURLs &&
+                    thread.externalURLs.length > 0 &&
+                    thread.externalURLs.map(({ url, serviceType }) => (
                         <li key={url + ':' + serviceType} className="list-inline-item">
                             <a href={url} target="_blank" rel="noopener noreferrer">
                                 {serviceType === 'github' /* TODO!(sqs) un-hardcode */ ? (
@@ -62,10 +65,10 @@ export const CampaignThreadList: React.FunctionComponent<Props> = ({
                             </a>
                         </li>
                     ))}
-                </ul>
-            ) : thread.isDraft ? (
-                <span>Draft</span>
-            ) : null,
+                {thread.isDraft && <li className="list-inline-item">Draft</li>}
+                {thread.isPendingExternalCreation && <li className="list-inline-item">Not yet created</li>}
+            </ul>
+        ),
         []
     )
     const itemRightComponent = useCallback<React.FunctionComponent<{ thread: GQL.ThreadOrThreadPreview }>>(

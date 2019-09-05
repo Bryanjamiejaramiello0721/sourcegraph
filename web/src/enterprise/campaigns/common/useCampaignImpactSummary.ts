@@ -8,9 +8,11 @@ import { queryGraphQL } from '../../../backend/graphql'
 import { diffStatFieldsFragment } from '../../../repo/compare/RepositoryCompareDiffPage'
 
 export interface CampaignImpactSummary {
+    discussions: number
     issues: number
     changesets: number
     participants: number
+    diagnostics: number
     repositories: number
     files: number
     diffStat: GQL.IDiffStat
@@ -35,6 +37,9 @@ export function useCampaignImpactSummary(campaign: Pick<GQL.ICampaign, 'id'>): R
                                 }
                             }
                             participants {
+                                totalCount
+                            }
+                            diagnostics {
                                 totalCount
                             }
                             repositoryComparisons {
@@ -62,10 +67,13 @@ export function useCampaignImpactSummary(campaign: Pick<GQL.ICampaign, 'id'>): R
                         throw new Error('campaign not found')
                     }
                     const result: CampaignImpactSummary = {
+                        discussions: data.node.threads.nodes.filter(thread => thread.kind === GQL.ThreadKind.DISCUSSION)
+                            .length,
                         issues: data.node.threads.nodes.filter(thread => thread.kind === GQL.ThreadKind.ISSUE).length,
                         changesets: data.node.threads.nodes.filter(thread => thread.kind === GQL.ThreadKind.CHANGESET)
                             .length,
                         participants: data.node.participants.totalCount,
+                        diagnostics: data.node.diagnostics.totalCount,
                         repositories: uniq(data.node.repositoryComparisons.map(c => c.baseRepository.id)).length,
                         files: data.node.repositoryComparisons.reduce((n, c) => n + (c.fileDiffs.totalCount || 0), 0),
                         diffStat: sumDiffStats(data.node.repositoryComparisons.map(c => c.fileDiffs.diffStat)),

@@ -1,18 +1,51 @@
 import { LoadingSpinner } from '@sourcegraph/react-loading-spinner'
 import SyncIcon from 'mdi-react/SyncIcon'
 import React, { useCallback, useState } from 'react'
-import { map, mapTo } from 'rxjs/operators'
+import { map, mapTo, first } from 'rxjs/operators'
 import { NotificationType } from '../../../../../shared/src/api/client/services/notifications'
 import { ExtensionsControllerProps } from '../../../../../shared/src/extensions/controller'
 import { dataOrThrowErrors, gql } from '../../../../../shared/src/graphql/graphql'
 import * as GQL from '../../../../../shared/src/graphql/schema'
-import { mutateGraphQL } from '../../../backend/graphql'
+import { mutateGraphQL, queryGraphQL } from '../../../backend/graphql'
+import { getCampaignExtensionData } from '../extensionData'
+import { RuleDefinition } from '../../rules/types'
+
+const queryCampaignRules = (campaign: Pick<GQL.ICampaign, 'id'>): Promise<RuleDefinition[]> =>
+    queryGraphQL(
+        gql`
+            query CampaignRules($campaign: ID!) {
+                node(id: $campaign) {
+                    __typename
+                    ... on Campaign {
+                        rules {
+                            nodes {
+                                definition {
+                                    parsed
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        `,
+        { campaign: campaign.id }
+    )
+        .pipe(
+            map(dataOrThrowErrors),
+            map(data => {
+                if (!data.node || data.node.__typename !== 'Campaign') {
+                    throw new Error('invalid campaign')
+                }
+                return data.node.rules.nodes.map(rule => rule.definition.parsed as RuleDefinition)
+            })
+        )
+        .toPromise()
 
 const forceRefreshCampaign = (args: GQL.IForceRefreshCampaignOnMutationArguments): Promise<void> =>
     mutateGraphQL(
         gql`
-            mutation ForceRefreshCampaign($campaign: ID!) {
-                forceRefreshCampaign(campaign: $campaign) {
+            mutation ForceRefreshCampaign($campaign: ID!, $extensionData: CampaignExtensionData!) {
+                forceRefreshCampaign(campaign: $campaign, extensionData: $extensionData) {
                     id
                 }
             }
@@ -48,8 +81,13 @@ export const CampaignForceRefreshButton: React.FunctionComponent<Props> = ({
             e.preventDefault()
             setIsLoading(true)
             try {
+                const rules = await queryCampaignRules(campaign)
+                const extensionData = await getCampaignExtensionData(extensionsController, rules)
+                    .pipe(first())
+                    .toPromise()
                 await forceRefreshCampaign({
                     campaign: campaign.id,
+                    extensionData,
                 })
                 setIsLoading(false)
                 if (onComplete) {

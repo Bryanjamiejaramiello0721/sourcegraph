@@ -1,4 +1,5 @@
 import React from 'react'
+import { isDefined } from '../../../../../shared/src/util/types'
 
 export interface ThreadListItemContext {}
 
@@ -50,12 +51,14 @@ export const AbstractThreadListItem: React.FunctionComponent<Props> = ({
                 </div>
                 {detail && detail.length > 0 && (
                     <ul className="list-inline d-flex align-items-center small text-muted mb-0">
-                        {detail.map((e, i) => (
-                            // eslint-disable-next-line react/no-array-index-key
-                            <li key={i} className="list-inline-item">
-                                {e}
-                            </li>
-                        ))}
+                        {detail
+                            .filter(e => !!e)
+                            .map((e, i) => (
+                                // eslint-disable-next-line react/no-array-index-key
+                                <li key={i} className="list-inline-item">
+                                    {e}
+                                </li>
+                            ))}
                     </ul>
                 )}
             </div>

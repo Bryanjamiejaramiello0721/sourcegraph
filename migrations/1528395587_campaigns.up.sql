@@ -65,13 +65,17 @@ CREATE TABLE comments (
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     updated_at timestamp with time zone NOT NULL DEFAULT now(),
 
+	parent_comment_id bigint REFERENCES comments(id) ON DELETE CASCADE,
+    thread_id bigint REFERENCES threads(id) ON DELETE CASCADE,
     campaign_id bigint REFERENCES campaigns(id) ON DELETE CASCADE
 );
+CREATE UNIQUE INDEX comments_thread_id ON comments(thread_id);
 CREATE UNIQUE INDEX comments_campaign_id ON comments(campaign_id);
 CREATE INDEX comments_author_user_id ON comments(author_user_id);
 
--- Ensure every campaign has a primary comment (the "top comment" whose body is the description of
--- the object).
+-- Ensure every thread and campaign has a primary comment (the "top comment" whose body is the
+-- description the object).
+ALTER TABLE threads ADD COLUMN primary_comment_id bigint NOT NULL REFERENCES comments(id) ON DELETE RESTRICT;
 ALTER TABLE campaigns ADD COLUMN primary_comment_id bigint NOT NULL REFERENCES comments(id) ON DELETE RESTRICT;
 
 -----------------
@@ -123,5 +127,71 @@ CREATE TABLE commit_status_contexts (
 	external_metadata jsonb
 );
 CREATE INDEX commit_status_contexts_repository_commit_context ON commit_status_contexts(repository_id, commit_oid, context);
+
+-----------------
+
+ALTER TABLE threads ADD COLUMN is_draft boolean NOT NULL DEFAULT false;
+ALTER TABLE threads ADD COLUMN is_pending_external_creation boolean NOT NULL DEFAULT false;
+ALTER TABLE threads ADD COLUMN pending_patch text;
+
+ALTER TABLE campaigns ADD COLUMN is_draft boolean NOT NULL DEFAULT false;
+ALTER TABLE campaigns ADD COLUMN start_date timestamp with time zone;
+ALTER TABLE campaigns ADD COLUMN due_date timestamp with time zone;
+ALTER TABLE campaigns ADD COLUMN extension_data jsonb;
+
+CREATE TABLE rules (
+	id bigserial PRIMARY KEY,
+	container_campaign_id bigint REFERENCES campaigns(id) ON DELETE CASCADE,
+	container_thread_id bigint REFERENCES threads(id) ON DELETE CASCADE,
+	name text NOT NULL,
+    template_id text,
+    template_context text,
+	description text,
+	definition text NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT now(),
+	updated_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX rules_container_campaign_id ON rules(container_campaign_id);
+CREATE INDEX rules_container_thread_id ON rules(container_thread_id);
+
+ALTER TABLE events ADD COLUMN rule_id bigint REFERENCES rules(id) ON DELETE CASCADE;
+
+-----------------
+
+CREATE TABLE thread_diagnostic_edges (
+	id bigserial PRIMARY KEY,
+	thread_id bigint NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+	--TODO!(sqs) location_repository_id integer NOT NULL REFERENCES repo(id) ON DELETE CASCADE,
+	type text NOT NULL,
+	data jsonb NOT NULL
+);
+--TODO!(sqs) CREATE INDEX threads_diagnostics_location_repository_id ON threads_diagnostics(location_repository_id);
+CREATE INDEX thread_diagnostic_edges_thread_id ON thread_diagnostic_edges(thread_id);
+
+ALTER TABLE events ADD COLUMN thread_diagnostic_edge_id bigint REFERENCES thread_diagnostic_edges(id) ON DELETE SET NULL;
+
+-----------------
+
+-- See https://gitlab.com/gitlab-org/gitlab-ce/issues/19997#note_16081366 for why we don't have
+-- group labels, only per-repository. labels. Instead of group labels, we will support batch
+-- editing of labels across multiple repositories.
+CREATE TABLE labels (
+	id bigserial PRIMARY KEY,
+    repository_id integer REFERENCES repo(id) ON DELETE CASCADE,
+	name citext NOT NULL,
+	description text,
+	color text NOT NULL
+);
+CREATE INDEX labels_repository_id ON labels(repository_id);
+CREATE INDEX labels_name ON labels(name);
+CREATE UNIQUE INDEX labels_name_project_uniq ON labels(name, repository_id);
+
+CREATE TABLE labels_objects (
+	label_id bigint NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+	thread_id bigint REFERENCES threads(id) ON DELETE CASCADE
+);
+CREATE INDEX labels_objects_label_id ON labels_objects(label_id);
+CREATE INDEX labels_objects_thread_id ON labels_objects(thread_id) WHERE thread_id IS NOT NULL;
+CREATE UNIQUE INDEX labels_objects_uniq ON labels_objects(label_id, thread_id);
 
 COMMIT;

@@ -20,8 +20,15 @@ import (
 
 func commentObjectFromGQLID(id graphql.ID) (types.CommentObject, error) {
 	switch relay.UnmarshalKind(id) {
-	case graphqlbackend.GQLTypeCampaign:
-		dbID, err := graphqlbackend.UnmarshalCampaignID(id)
+	case gqlTypeCommentReply:
+		panic("CommentReply is its own comment object") // TODO!(sqs): clean up
+	case "Thread":
+		threadID, err := graphqlbackend.UnmarshalThreadID(id)
+		return types.CommentObject{ThreadID: threadID}, err
+	case "Campaign":
+		// TODO!(sqs): reduce duplication of logic and constants?
+		var dbID int64
+		err := relay.UnmarshalSpec(id, &dbID)
 		return types.CommentObject{CampaignID: dbID}, err
 	default:
 		return types.CommentObject{}, fmt.Errorf("invalid comment type %q", relay.UnmarshalKind(id))
@@ -35,7 +42,16 @@ func commentByGQLID(ctx context.Context, id graphql.ID) (*internal.DBComment, er
 		return mockCommentByGQLID(id)
 	}
 
-	opt := internal.DBCommentsListOptions{}
+	// Look up a CommentReply directly because its ID directly refers to its comment.
+	if relay.UnmarshalKind(id) == gqlTypeCommentReply {
+		dbID, err := unmarshalCommentReplyID(id)
+		if err != nil {
+			return nil, err
+		}
+		return internal.DBComments{}.GetByID(ctx, dbID)
+	}
+
+	opt := internal.DBCommentsListOptions{ObjectPrimaryComment: true}
 	var err error
 	opt.Object, err = commentObjectFromGQLID(id)
 	if err != nil {
@@ -62,6 +78,18 @@ func newGQLToComment(ctx context.Context, dbComment *internal.DBComment) (graphq
 	}
 
 	switch {
+	case dbComment.Object.ParentCommentID != 0:
+		return &graphqlbackend.ToComment{
+			CommentReply: &gqlCommentReply{
+				gqlComment: &gqlComment{dbComment: dbComment},
+			},
+		}, nil
+	case dbComment.Object.ThreadID != 0:
+		v, err := graphqlbackend.ThreadByID(ctx, graphqlbackend.MarshalThreadID(dbComment.Object.ThreadID))
+		if err != nil {
+			return nil, err
+		}
+		return &graphqlbackend.ToComment{Thread: v}, nil
 	case dbComment.Object.CampaignID != 0:
 		v, err := graphqlbackend.CampaignByDBID(ctx, dbComment.Object.CampaignID)
 		if err != nil {

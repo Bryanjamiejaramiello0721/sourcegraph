@@ -20,3 +20,4 @@ docsite: .bin/docsite -config doc/docsite.json serve -http=localhost:5080
 lsif-server: yarn --cwd lsif/server run serve
 prometheus: ./dev/prometheus.sh
 grafana: ./dev/grafana.sh
+builtin-extensions: cd ./extensions/enterprise/sandbox && yarn -s && yarn -s serve --port 1235

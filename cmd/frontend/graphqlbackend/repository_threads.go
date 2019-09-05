@@ -7,6 +7,14 @@ import (
 	"github.com/sourcegraph/sourcegraph/pkg/api"
 )
 
+func (r *RepositoryResolver) Thread(ctx context.Context, arg struct{ Number string }) (Thread, error) {
+	return ThreadInRepository(ctx, r.ID(), arg.Number)
+}
+
+func (r *RepositoryResolver) Threads(ctx context.Context, arg *ThreadConnectionArgs) (ThreadConnection, error) {
+	return ThreadsForRepository(ctx, r.ID(), arg)
+}
+
 // TODO!(sqs) document that this is set by enterprise, handle when it's not set, and rethink the
 // architecture here.
 var ForceRefreshRepositoryThreads func(context.Context, api.RepoID, api.ExternalRepoSpec) error

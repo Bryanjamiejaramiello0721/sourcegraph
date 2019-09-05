@@ -49,6 +49,9 @@ export const ThreadOrThreadPreviewConnectionFragment = gql`
             ... on Thread {
                 ...ThreadFragment
             }
+            ... on ThreadPreview {
+                ...ThreadPreviewFragment
+            }
         }
         totalCount
         filters {

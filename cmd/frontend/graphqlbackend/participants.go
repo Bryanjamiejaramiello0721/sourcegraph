@@ -18,8 +18,9 @@ type ParticipantEdge interface {
 type ParticipantReason string
 
 const (
-	ParticipantReasonAssignee ParticipantReason = "ASSIGNEE"
-	ParticipantReasonAuthor   ParticipantReason = "AUTHOR"
+	ParticipantReasonCodeOwner ParticipantReason = "CODE_OWNER"
+	ParticipantReasonAssignee  ParticipantReason = "ASSIGNEE"
+	ParticipantReasonAuthor    ParticipantReason = "AUTHOR"
 )
 
 type hasParticipants interface {

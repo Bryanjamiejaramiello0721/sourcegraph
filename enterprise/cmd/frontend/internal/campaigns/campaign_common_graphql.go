@@ -14,6 +14,12 @@ type threadsGetter interface {
 	getThreads(ctx context.Context) ([]graphqlbackend.ToThreadOrThreadPreview, error)
 }
 
+// gqlCampaignThreadDerived implements the fields/methods of the Campaign and CampaignPrevie GraphQL
+// types that are derived from the campaign's set of threads.
+type gqlCampaignThreadDerived struct {
+	getThreads func(context.Context) ([]*graphqlbackend.Thread, error)
+}
+
 func campaignRepositories(ctx context.Context, campaign threadsGetter) ([]*graphqlbackend.RepositoryResolver, error) {
 	threads, err := campaign.getThreads(ctx)
 	if err != nil {

@@ -23,12 +23,12 @@ type DBObjectCommentFields struct {
 	UpdatedAt time.Time
 }
 
-// CreateCommentWithObject creates a comment and its related object (such as a campaign) in a
-// transaction.
+// CreateCommentWithObject creates a comment and its related object (such as a thread or campaign)
+// in a transaction.
 //
 // The insertRelatedObject func is called with the comment ID, in case the related object needs to
 // store the comment ID. After the related object is inserted, the comment row is updated to refer
-// to the object by ID (e.g., the campaign ID).
+// to the object by ID (e.g., the thread ID or campaign ID).
 func CreateCommentWithObject(ctx context.Context, tx *sql.Tx, comment DBObjectCommentFields, insertRelatedObject insertRelatedObjectFunc) (err error) {
 	if tx == nil {
 		var err error
@@ -64,9 +64,11 @@ func CreateCommentWithObject(ctx context.Context, tx *sql.Tx, comment DBObjectCo
 		return err
 	}
 
-	_, err = tx.ExecContext(ctx, `UPDATE comments SET campaign_id=$2 WHERE id=$1`,
-		insertedComment.ID,
+	_, err = tx.ExecContext(ctx, `UPDATE comments SET parent_comment_id=$1, thread_id=$2, campaign_id=$3 WHERE id=$4`,
+		nilIfZero(object.ParentCommentID),
+		nilIfZero(object.ThreadID),
 		nilIfZero(object.CampaignID),
+		insertedComment.ID,
 	)
 	return err
 }

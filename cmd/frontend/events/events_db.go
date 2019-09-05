@@ -32,7 +32,7 @@ var errEventNotFound = errors.New("event not found")
 
 type dbEvents struct{}
 
-const selectColumns = `id, type, actor_user_id, external_actor_username, external_actor_url, created_at, data, thread_id, campaign_id, comment_id, repository_id, user_id, organization_id, registry_extension_id, imported_from_external_service_id`
+const selectColumns = `id, type, actor_user_id, external_actor_username, external_actor_url, created_at, data, thread_id, thread_diagnostic_edge_id, campaign_id, comment_id, rule_id, repository_id, user_id, organization_id, registry_extension_id, imported_from_external_service_id`
 
 // Create creates a event. The event argument's (Event).ID field is ignored. The new event is
 // returned.
@@ -56,8 +56,10 @@ func (dbEvents) Create(ctx context.Context, tx *sql.Tx, event *dbEvent) (*dbEven
 		event.CreatedAt,
 		data,
 		nnz.Int64(event.Objects.Thread),
+		nnz.Int64(event.Objects.ThreadDiagnosticEdge),
 		nnz.Int64(event.Objects.Campaign),
 		nnz.Int64(event.Objects.Comment),
+		nnz.Int64(event.Objects.Rule),
 		nnz.Int32(event.Objects.Repository),
 		nnz.Int32(event.Objects.User),
 		nnz.Int32(event.Objects.Organization),
@@ -117,10 +119,12 @@ func (o dbEventsListOptions) sqlConditions() []*sqlf.Query {
 		}
 	}
 	addCondition(o.Objects.Thread, "thread_id")
+	addCondition(o.Objects.ThreadDiagnosticEdge, "thread_diagnostic_edge_id")
 	if o.Objects.Campaign != 0 {
-		conds = append(conds, sqlf.Sprintf("campaign_id=%d OR thread_id IN (SELECT thread_id FROM campaigns_threads WHERE campaign_id=%d)", o.Objects.Campaign, o.Objects.Campaign))
+		conds = append(conds, sqlf.Sprintf("campaign_id=%d OR thread_id IN (SELECT thread_id FROM campaigns_threads WHERE campaign_id=%d) OR comment_id IN (SELECT id FROM comments WHERE parent_comment_id IN (SELECT id FROM comments WHERE thread_id IN (SELECT thread_id FROM campaigns_threads WHERE campaign_id=%d)))", o.Objects.Campaign, o.Objects.Campaign, o.Objects.Campaign))
 	}
 	addCondition(o.Objects.Comment, "comment_id")
+	addCondition(o.Objects.Rule, "rule_id")
 	addCondition(int64(o.Objects.Repository), "repository_id")
 	addCondition(int64(o.Objects.User), "user_id")
 	addCondition(int64(o.Objects.Organization), "organization_id")
@@ -184,8 +188,10 @@ func (dbEvents) scanRow(row interface {
 		&t.CreatedAt,
 		&t.Data,
 		(*nnz.Int64)(&t.Objects.Thread),
+		(*nnz.Int64)(&t.Objects.ThreadDiagnosticEdge),
 		(*nnz.Int64)(&t.Objects.Campaign),
 		(*nnz.Int64)(&t.Objects.Comment),
+		(*nnz.Int64)(&t.Objects.Rule),
 		nnz.ToInt32(&t.Objects.Repository),
 		nnz.ToInt32(&t.Objects.User),
 		nnz.ToInt32(&t.Objects.Organization),

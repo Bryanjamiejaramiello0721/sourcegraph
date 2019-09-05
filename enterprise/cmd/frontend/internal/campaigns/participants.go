@@ -39,7 +39,7 @@ func campaignParticipants(ctx context.Context, campaign interface {
 		}
 		for _, assignee := range assignees {
 			edge := getParticipant(assignee)
-			edge.reasons = append(edge.reasons, graphqlbackend.ParticipantReasonAssignee)
+			edge.reasons = append(edge.reasons, graphqlbackend.ParticipantReasonCodeOwner, graphqlbackend.ParticipantReasonAssignee)
 		}
 	}
 
@@ -47,6 +47,8 @@ func campaignParticipants(ctx context.Context, campaign interface {
 	var author *graphqlbackend.Actor
 	switch campaign := campaign.(type) {
 	case *gqlCampaign:
+		author, err = campaign.Author(ctx)
+	case *gqlCampaignPreview:
 		author, err = campaign.Author(ctx)
 	}
 	if err != nil {

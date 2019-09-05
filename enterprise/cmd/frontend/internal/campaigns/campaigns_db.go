@@ -3,6 +3,7 @@ package campaigns
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -22,6 +23,11 @@ type dbCampaign struct {
 	NamespaceUserID int32  // the user namespace where this campaign is defined
 	NamespaceOrgID  int32  // the org namespace where this campaign is defined
 	Name            string // the name (case-preserving)
+	IsDraft         bool
+	StartDate       *time.Time
+	DueDate         *time.Time
+
+	ExtensionData json.RawMessage
 
 	PrimaryCommentID int64
 	CreatedAt        time.Time
@@ -34,7 +40,7 @@ var errCampaignNotFound = errors.New("campaign not found")
 
 type dbCampaigns struct{}
 
-const selectColumns = `id, namespace_user_id, namespace_org_id, name, primary_comment_id, created_at, updated_at`
+const selectColumns = `id, namespace_user_id, namespace_org_id, name, is_draft, start_date, due_date, extension_data, primary_comment_id, created_at, updated_at`
 
 // Create creates a campaign. The campaign argument's (Campaign).ID field is ignored. The new
 // campaign is returned.
@@ -52,6 +58,10 @@ func (dbCampaigns) Create(ctx context.Context, campaign *dbCampaign, comment com
 			nnz.Int32(campaign.NamespaceUserID),
 			nnz.Int32(campaign.NamespaceOrgID),
 			campaign.Name,
+			campaign.IsDraft,
+			campaign.StartDate,
+			campaign.DueDate,
+			nnz.JSON(campaign.ExtensionData),
 			commentID,
 		}
 		query := sqlf.Sprintf(
@@ -68,7 +78,14 @@ func (dbCampaigns) Create(ctx context.Context, campaign *dbCampaign, comment com
 }
 
 type dbCampaignUpdate struct {
-	Name *string
+	Name               *string
+	IsDraft            *bool
+	StartDate          *time.Time
+	ClearStartDate     bool
+	DueDate            *time.Time
+	ClearDueDate       bool
+	ExtensionData      json.RawMessage
+	ClearExtensionData bool
 }
 
 // Update updates a campaign given its ID.
@@ -81,6 +98,19 @@ func (s dbCampaigns) Update(ctx context.Context, id int64, update dbCampaignUpda
 	if update.Name != nil {
 		setFields = append(setFields, sqlf.Sprintf("name=%s", *update.Name))
 	}
+	if update.IsDraft != nil {
+		setFields = append(setFields, sqlf.Sprintf("is_draft=%v", *update.IsDraft))
+	}
+	clearOrUpdate := func(column string, clear, update bool, updateValue interface{}) {
+		if clear {
+			setFields = append(setFields, sqlf.Sprintf(column+"=null"))
+		} else if update {
+			setFields = append(setFields, sqlf.Sprintf(column+"=%v", updateValue))
+		}
+	}
+	clearOrUpdate("start_date", update.ClearStartDate, update.StartDate != nil, update.StartDate)
+	clearOrUpdate("due_date", update.ClearDueDate, update.DueDate != nil, update.DueDate)
+	clearOrUpdate("extension_data", update.ClearExtensionData, update.ExtensionData != nil, update.ExtensionData)
 
 	if len(setFields) == 0 {
 		return nil, nil
@@ -192,6 +222,10 @@ func (dbCampaigns) scanRow(row interface {
 		nnz.ToInt32(&t.NamespaceUserID),
 		nnz.ToInt32(&t.NamespaceOrgID),
 		&t.Name,
+		&t.IsDraft,
+		&t.StartDate,
+		&t.DueDate,
+		nnz.ToJSON(&t.ExtensionData),
 		&t.PrimaryCommentID,
 		&t.CreatedAt,
 		&t.UpdatedAt,

@@ -10,6 +10,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/actor"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
+	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/commentobjectdb"
 	"github.com/sourcegraph/sourcegraph/pkg/api"
 	"github.com/sourcegraph/sourcegraph/pkg/extsvc/github"
@@ -46,11 +47,18 @@ func ImportGitHubRepositoryThreads(ctx context.Context, repoID api.RepoID, extRe
 }
 
 func newExternalThread(result *githubIssueOrPullRequest, repoID api.RepoID, externalServiceID int64) *externalThread {
-	thread, _ := githubIssueOrPullRequestToThread(result)
+	thread, threadComment := githubIssueOrPullRequestToThread(result)
 	thread.RepositoryID = repoID
 	thread.ImportedFromExternalServiceID = externalServiceID
+
+	replyComments := make([]*comments.ExternalComment, len(result.Comments.Nodes))
+	for i, c := range result.Comments.Nodes {
+		replyComments[i] = githubIssueCommentToExternalComment(c)
+	}
 	return &externalThread{
-		thread: thread,
+		thread:        thread,
+		threadComment: threadComment,
+		comments:      replyComments,
 	}
 }
 
@@ -95,6 +103,15 @@ func githubActorSetDBObjectCommentFields(actor *githubActor, f *commentobjectdb.
 	f.Author.ExternalActorURL = actor.URL
 }
 
+func githubIssueCommentToExternalComment(v *githubIssueComment) *comments.ExternalComment {
+	comment := comments.ExternalComment{}
+	githubActorSetDBObjectCommentFields(v.Author, &comment.DBObjectCommentFields)
+	comment.CreatedAt = v.CreatedAt
+	comment.UpdatedAt = v.UpdatedAt
+	comment.Body = v.Body
+	return &comment
+}
+
 type githubIssueOrPullRequest struct {
 	Typename          string       `json:"__typename"`
 	ID                graphql.ID   `json:"id"`
@@ -117,6 +134,11 @@ type githubIssueOrPullRequest struct {
 	Comments struct {
 		Nodes []*githubIssueComment `json:"nodes"`
 	} `json:"comments"`
+}
+
+type githubRef struct {
+	Name   string `json:"name"`
+	Prefix string `json:"prefix"`
 }
 
 type githubIssueComment struct {

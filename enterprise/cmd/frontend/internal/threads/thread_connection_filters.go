@@ -24,6 +24,10 @@ func newThreadConnectionFiltersFromDB(ctx context.Context, opt dbThreadsListOpti
 	return &threadConnectionFilters{ToThreadOrThreadPreviews(toThreads(allThreads), nil)}, nil
 }
 
+func newThreadConnectionFiltersFromConst(allThreads []graphqlbackend.ToThreadOrThreadPreview) graphqlbackend.ThreadConnectionFilters {
+	return &threadConnectionFilters{allThreads: allThreads}
+}
+
 type threadConnectionFilters struct {
 	allThreads []graphqlbackend.ToThreadOrThreadPreview
 }
@@ -50,7 +54,7 @@ func (f *threadConnectionFilters) Repository(ctx context.Context) ([]graphqlback
 func (f *threadConnectionFilters) Label(ctx context.Context) ([]graphqlbackend.LabelFilter, error) {
 	// TODO!(sqs) security respect label perms
 	var (
-		labelForName       = map[string]*graphqlbackend.Label{}
+		labelForName       = map[string]graphqlbackend.Label{}
 		labelNameConflicts = map[string]struct{}{}
 		labelCounts        = map[string]int32{}
 	)

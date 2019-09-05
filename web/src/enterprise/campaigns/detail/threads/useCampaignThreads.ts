@@ -10,6 +10,7 @@ import {
     ThreadOrThreadPreviewConnectionFragment,
 } from '../../../threads/list/useThreads'
 import { ThreadFragment } from '../../../threads/util/graphql'
+import { ThreadPreviewFragment } from '../../preview/useCampaignPreview'
 const LOADING: 'loading' = 'loading'
 
 /**
@@ -41,6 +42,7 @@ export const useCampaignThreads = (
                 ${ThreadOrThreadPreviewConnectionFragment}
                 ${ThreadConnectionFiltersFragment}
                 ${ThreadFragment}
+                ${ThreadPreviewFragment}
                 ${ActorFragment}
             `,
             { campaign: campaign.id, threadsFirst: arg.first, threadsFilters: arg.filters }

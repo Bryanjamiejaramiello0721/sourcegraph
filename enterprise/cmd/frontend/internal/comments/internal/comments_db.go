@@ -31,7 +31,7 @@ var ErrCommentNotFound = errors.New("comment not found")
 
 type DBComments struct{}
 
-const selectColumns = `id, author_user_id, author_external_actor_username, author_external_actor_url, body, created_at, updated_at, campaign_id`
+const selectColumns = `id, author_user_id, author_external_actor_username, author_external_actor_url, body, created_at, updated_at, parent_comment_id, thread_id, campaign_id`
 
 // Create creates a comment. The comment argument's (Comment).ID field is ignored. The new comment
 // is returned.
@@ -54,6 +54,8 @@ func (DBComments) Create(ctx context.Context, tx *sql.Tx, comment *DBComment) (*
 		comment.Body,
 		nowIfZeroTime(comment.CreatedAt),
 		nowIfZeroTime(comment.UpdatedAt),
+		nnz.Int64(comment.Object.ParentCommentID),
+		nnz.Int64(comment.Object.ThreadID),
 		nnz.Int64(comment.Object.CampaignID),
 	}
 	query := sqlf.Sprintf(
@@ -61,6 +63,20 @@ func (DBComments) Create(ctx context.Context, tx *sql.Tx, comment *DBComment) (*
 		args...,
 	)
 	return DBComments{}.scanRow(dbconn.TxOrGlobal(tx).QueryRowContext(ctx, query.Query(sqlf.PostgresBindVar), query.Args()...))
+}
+
+func nilIfZero(v int64) *int64 {
+	if v == 0 {
+		return nil
+	}
+	return &v
+}
+
+func nilIfZero32(v int32) *int32 {
+	if v == 0 {
+		return nil
+	}
+	return &v
 }
 
 type DBCommentUpdate struct {
@@ -113,8 +129,9 @@ func (DBComments) GetByID(ctx context.Context, id int64) (*DBComment, error) {
 
 // DBCommentsListOptions contains options for listing comments.
 type DBCommentsListOptions struct {
-	Query  string // only list comments matching this query (case-insensitively)
-	Object types.CommentObject
+	Query                string // only list comments matching this query (case-insensitively)
+	Object               types.CommentObject
+	ObjectPrimaryComment bool // only return the object's primary comment
 	*db.LimitOffset
 }
 
@@ -123,13 +140,21 @@ func (o DBCommentsListOptions) sqlConditions() []*sqlf.Query {
 	if o.Query != "" {
 		conds = append(conds, sqlf.Sprintf("body ILIKE %s", "%"+o.Query+"%"))
 	}
+	if o.Object.ParentCommentID != 0 {
+		conds = append(conds, sqlf.Sprintf("parent_comment_id=%d", o.Object.ParentCommentID))
+	}
 
-	addObjectCondition := func(id int64, column string) {
+	addObjectCondition := func(id int64, column, otherTable string) {
 		if id != 0 {
-			conds = append(conds, sqlf.Sprintf(column+"=%d", id))
+			objectConds := []*sqlf.Query{sqlf.Sprintf(column+"=%d", id)}
+			if !o.ObjectPrimaryComment {
+				objectConds = append(objectConds, sqlf.Sprintf("parent_comment_id=(SELECT primary_comment_id FROM "+otherTable+" WHERE id=%d)", id))
+			}
+			conds = append(conds, sqlf.Join(objectConds, " OR "))
 		}
 	}
-	addObjectCondition(o.Object.CampaignID, "campaign_id")
+	addObjectCondition(o.Object.ThreadID, "thread_id", "threads")
+	addObjectCondition(o.Object.CampaignID, "campaign_id", "campaigns")
 
 	return conds
 }
@@ -188,6 +213,8 @@ func (DBComments) scanRow(row interface {
 		&t.Body,
 		&t.CreatedAt,
 		&t.UpdatedAt,
+		(*nnz.Int64)(&t.Object.ParentCommentID),
+		(*nnz.Int64)(&t.Object.ThreadID),
 		(*nnz.Int64)(&t.Object.CampaignID),
 	); err != nil {
 		return nil, err

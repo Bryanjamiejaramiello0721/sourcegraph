@@ -85,13 +85,15 @@ export class FileDiffNode extends React.PureComponent<FileDiffNodeProps, State> 
                             </Link>
                         </div>
                         <div className="file-diff-node__header-actions">
-                            <Link
-                                to={node.mostRelevantFile.url}
-                                className="btn btn-sm"
-                                data-tooltip="View file at revision"
-                            >
-                                View
-                            </Link>
+                            {node.mostRelevantFile && (
+                                <Link
+                                    to={node.mostRelevantFile.url}
+                                    className="btn btn-sm"
+                                    data-tooltip="View file at revision"
+                                >
+                                    View
+                                </Link>
+                            )}
                             <button type="button" className="btn btn-sm btn-icon ml-2" onClick={this.toggleExpand}>
                                 {this.state.expanded ? (
                                     <ChevronDownIcon className="icon-inline" />

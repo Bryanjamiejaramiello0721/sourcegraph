@@ -1,6 +1,7 @@
 package campaigns
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -17,7 +18,8 @@ func TestDB_Campaigns(t *testing.T) {
 		t.Skip()
 	}
 	resetMocks()
-	ctx := dbtesting.TestContext(t)
+	dbtesting.SetupGlobalTestDB(t)
+	ctx := context.Background()
 
 	// for testing equality of all other fields
 	norm := func(vs ...*dbCampaign) {

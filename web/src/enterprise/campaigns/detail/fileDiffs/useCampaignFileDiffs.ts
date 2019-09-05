@@ -49,10 +49,6 @@ function queryCampaignFileDiffs(campaign: Pick<GQL.ICampaign, 'id'>): Observable
                             fileDiffs {
                                 nodes {
                                     ...FileDiffFields
-                                    newFile {
-                                        path
-                                        content
-                                    }
                                 }
                                 totalCount
                                 pageInfo {

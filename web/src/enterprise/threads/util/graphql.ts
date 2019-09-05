@@ -5,9 +5,13 @@ export const ThreadFragment = gql`
     fragment ThreadFragment on Thread {
         __typename
         id
+        number
         title
+        isDraft
+        isPendingExternalCreation
         state
         kind
+        url
         createdAt
         externalURLs {
             url
@@ -17,17 +21,16 @@ export const ThreadFragment = gql`
             name
             url
         }
+        author {
+            ${ActorQuery}
+        }
         assignees {
             nodes {
                 ${ActorQuery}
             }
             totalCount
         }
-        labels {
-            nodes {
-                name
-                color
-            }
+        comments {
             totalCount
         }
     }

@@ -21,6 +21,8 @@ const { fragment: eventFragment, query: eventQuery } = queryAndFragmentForUnion<
         'MergeThreadEvent',
         'CloseThreadEvent',
         'ReopenThreadEvent',
+        'AddDiagnosticToThreadEvent',
+        'RemoveDiagnosticFromThreadEvent',
     ],
     ['__typename', 'id', 'createdAt'],
     [`actor { ${ActorQuery} }`, `thread { ...ThreadFragment }` as any],
@@ -49,11 +51,23 @@ export const useCampaignTimelineItems = (campaign: Pick<GQL.ICampaign, 'id'>): [
                             timelineItems {
                                 nodes {
                                     ${eventQuery}
-                                    __typename
                                     ... on CommentEvent {
                                         id
                                         createdAt
                                         actor { ${ActorQuery} }
+                                        comment {
+                                            __typename
+                                            bodyText
+                                            ... on CommentReply {
+                                                parent {
+                                                    __typename
+                                                    ... on Thread {
+                                                        title
+                                                        url
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                     ... on ReviewEvent {
                                         state
@@ -63,6 +77,12 @@ export const useCampaignTimelineItems = (campaign: Pick<GQL.ICampaign, 'id'>): [
                                     }
                                     ... on RemoveThreadFromCampaignEvent {
                                         campaign { name url }
+                                    }
+                                    ... on AddDiagnosticToThreadEvent {
+                                        diagnostic { type data }
+                                    }
+                                    ... on RemoveDiagnosticFromThreadEvent {
+                                        diagnostic { type data }
                                     }
                                 }
                                 totalCount

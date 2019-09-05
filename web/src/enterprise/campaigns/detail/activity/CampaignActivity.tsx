@@ -30,6 +30,7 @@ export const CampaignActivity: React.FunctionComponent<Props> = ({ campaign, cla
             />
             <CampaignBurndownChart {...props} campaign={campaign} className="mb-4" />
             <CampaignTimeline {...props} campaign={campaign} timelineItemsClassName="pb-6" />
+            <CommentList {...props} commentable={campaign} />
         </div>
     )
 }

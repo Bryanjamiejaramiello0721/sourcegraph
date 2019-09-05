@@ -1,6 +1,7 @@
 package campaigns
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -17,7 +18,8 @@ func TestDB_CampaignsThreads(t *testing.T) {
 		t.Skip()
 	}
 	resetMocks()
-	ctx := dbtesting.TestContext(t)
+	dbtesting.SetupGlobalTestDB(t)
+	ctx := context.Background()
 
 	// Create campaign.
 	user1, err := db.Users.Create(ctx, db.NewUser{Username: "user1"})

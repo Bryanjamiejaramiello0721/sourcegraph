@@ -5,16 +5,24 @@ import (
 
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/events"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
+	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/internal"
 )
 
 const EventTypeComment events.Type = "Comment"
 
 func init() {
 	events.Register(EventTypeComment, func(ctx context.Context, common graphqlbackend.EventCommon, data events.EventData, toEvent *graphqlbackend.ToEvent) error {
-		// TODO!(sqs): read comment data from event payload
+		dbComment, err := internal.DBComments{}.GetByID(ctx, data.Comment)
+		if err != nil {
+			return err
+		}
+		comment, err := newGQLToComment(ctx, dbComment)
+		if err != nil {
+			return err
+		}
 		toEvent.CommentEvent = &graphqlbackend.CommentEvent{
 			EventCommon: common,
-			// TODO!(sqs): store comment data
+			Comment_:    comment,
 		}
 		return nil
 	})

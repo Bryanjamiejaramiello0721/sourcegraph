@@ -42,6 +42,23 @@ func ThreadByID(ctx context.Context, id graphql.ID) (Thread, error) {
 	return Threads.ThreadByID(ctx, id)
 }
 
+// ThreadInRepository returns a specific thread in the specified repository.
+func ThreadInRepository(ctx context.Context, repository graphql.ID, number string) (Thread, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.ThreadInRepository(ctx, repository, number)
+}
+
+// ThreadsForRepository returns an instance of the GraphQL ThreadConnection type with the list of
+// threads defined in a repository.
+func ThreadsForRepository(ctx context.Context, repository graphql.ID, arg *ThreadConnectionArgs) (ThreadConnection, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.ThreadsForRepository(ctx, repository, arg)
+}
+
 func (schemaResolver) Threads(ctx context.Context, arg *ThreadConnectionArgs) (ThreadConnection, error) {
 	if Threads == nil {
 		return nil, errThreadsNotImplemented
@@ -49,13 +66,54 @@ func (schemaResolver) Threads(ctx context.Context, arg *ThreadConnectionArgs) (T
 	return Threads.Threads(ctx, arg)
 }
 
+func (r schemaResolver) CreateThread(ctx context.Context, arg *CreateThreadArgs) (Thread, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.CreateThread(ctx, arg)
+}
+
+func (r schemaResolver) UpdateThread(ctx context.Context, arg *UpdateThreadArgs) (Thread, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.UpdateThread(ctx, arg)
+}
+
+func (r schemaResolver) PublishDraftThread(ctx context.Context, arg *PublishDraftThreadArgs) (Thread, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.PublishDraftThread(ctx, arg)
+}
+
+func (r schemaResolver) DeleteThread(ctx context.Context, arg *DeleteThreadArgs) (*EmptyResponse, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.DeleteThread(ctx, arg)
+}
+
 // ThreadsResolver is the interface for the GraphQL threads queries and mutations.
 type ThreadsResolver interface {
 	// Queries
 	Threads(context.Context, *ThreadConnectionArgs) (ThreadConnection, error)
 
+	// Mutations
+	CreateThread(context.Context, *CreateThreadArgs) (Thread, error)
+	UpdateThread(context.Context, *UpdateThreadArgs) (Thread, error)
+	PublishDraftThread(context.Context, *PublishDraftThreadArgs) (Thread, error)
+	DeleteThread(context.Context, *DeleteThreadArgs) (*EmptyResponse, error)
+
 	// ThreadByID is called by the ThreadByID func but is not in the GraphQL API.
 	ThreadByID(context.Context, graphql.ID) (Thread, error)
+
+	// ThreadInRepository is called by the ThreadInRepository func but is not in the GraphQL API.
+	ThreadInRepository(ctx context.Context, repository graphql.ID, number string) (Thread, error)
+
+	// ThreadsForRepository is called by the ThreadsForRepository func but is not in the GraphQL
+	// API.
+	ThreadsForRepository(ctx context.Context, repository graphql.ID, arg *ThreadConnectionArgs) (ThreadConnection, error)
 }
 
 type ThreadConnectionArgs struct {
@@ -69,6 +127,40 @@ type ThreadFiltersInput struct {
 	States       *[]ThreadState
 }
 
+type CreateThreadInput struct {
+	Repository     graphql.ID
+	Title          string
+	Body           *string
+	Draft          *bool
+	BaseRef        *string
+	HeadRef        *string
+	RawDiagnostics *[]string
+
+	Internal_PendingExternalCreation bool
+}
+
+type CreateThreadArgs struct {
+	Input CreateThreadInput
+}
+
+type UpdateThreadArgs struct {
+	Input struct {
+		ID      graphql.ID
+		Title   *string
+		Body    *string
+		BaseRef *string
+		HeadRef *string
+	}
+}
+
+type PublishDraftThreadArgs struct {
+	Thread graphql.ID
+}
+
+type DeleteThreadArgs struct {
+	Thread graphql.ID
+}
+
 type ThreadState string
 
 const (
@@ -80,25 +172,33 @@ const (
 type ThreadKind string
 
 const (
-	ThreadKindIssue     ThreadKind = "ISSUE"
-	ThreadKindChangeset ThreadKind = "CHANGESET"
+	ThreadKindDiscussion ThreadKind = "DISCUSSION"
+	ThreadKindIssue      ThreadKind = "ISSUE"
+	ThreadKindChangeset  ThreadKind = "CHANGESET"
 )
 
 // Thread is the interface for the GraphQL type Thread.
 type Thread interface {
+	PartialComment
 	ID() graphql.ID
 	DBID() int64
 	Repository(context.Context) (*RepositoryResolver, error)
 	Internal_RepositoryID() api.RepoID
+	Number() string
 	Title() string
+	IsDraft() bool
+	IsPendingExternalCreation() bool
 	State() ThreadState
 	BaseRef() *string
 	HeadRef() *string
-	CreatedAt() DateTime
-	UpdatedAt() DateTime
+	hasThreadDiagnostics
 	Updatable
+	commentable
+	ruleContainer
 	Kind(context.Context) (ThreadKind, error)
+	URL(context.Context) (string, error)
 	ExternalURLs(context.Context) ([]*externallink.Resolver, error)
+	TimelineItems(context.Context, *EventConnectionCommonArgs) (EventConnection, error)
 	RepositoryComparison(context.Context) (RepositoryComparison, error)
 	CampaignNode
 	Assignable

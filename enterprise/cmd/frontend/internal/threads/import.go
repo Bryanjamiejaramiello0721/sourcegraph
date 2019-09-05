@@ -5,14 +5,17 @@ import (
 	"database/sql"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments"
+	commentobjectdb "github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/commentobjectdb"
 	"github.com/sourcegraph/sourcegraph/pkg/api"
 	"github.com/sourcegraph/sourcegraph/pkg/db/dbconn"
 )
 
 type externalThread struct {
-	thread *DBThread
+	thread        *DBThread
+	threadComment commentobjectdb.DBObjectCommentFields
 
-	// In the future, we will persist thread bodies and comments.
+	comments []*comments.ExternalComment
 }
 
 var MockImportExternalThreads func(repo api.RepoID, externalServiceID int64, toImport []*externalThread) error
@@ -71,11 +74,18 @@ func ImportExternalThreads(ctx context.Context, repo api.RepoID, externalService
 }
 
 func dbCreateExternalThread(ctx context.Context, tx *sql.Tx, x *externalThread) (threadID int64, err error) {
-	thread, err := (dbThreads{}).Create(ctx, tx, x.thread)
+	dbThread, err := (dbThreads{}).Create(ctx, tx, x.thread, x.threadComment)
 	if err != nil {
 		return 0, err
 	}
-	return thread.ID, nil
+	for _, comment := range x.comments {
+		tmp := *comment
+		tmp.ThreadPrimaryCommentID = dbThread.PrimaryCommentID
+		if err := comments.CreateExternalCommentReply(ctx, tx, tmp); err != nil {
+			return 0, err
+		}
+	}
+	return dbThread.ID, nil
 }
 
 func dbUpdateExternalThread(ctx context.Context, threadID int64, x *externalThread) error {
@@ -89,6 +99,23 @@ func dbUpdateExternalThread(ctx context.Context, threadID int64, x *externalThre
 	if x.thread.HeadRef != "" {
 		update.HeadRef = &x.thread.HeadRef
 	}
-	_, err := (dbThreads{}).Update(ctx, threadID, update)
-	return err
+	dbThread, err := (dbThreads{}).Update(ctx, threadID, update)
+	if err != nil {
+		return err
+	}
+
+	// TODO!(sqs): hack: to avoid duplicating comments, we delete all comments for the thread and then
+	// re-add all. this will result in permanent removal of non-external comments.
+	if _, err := dbconn.Global.ExecContext(ctx, `DELETE FROM comments WHERE parent_comment_id=$1`, dbThread.PrimaryCommentID); err != nil {
+		return err
+	}
+
+	for _, comment := range x.comments {
+		tmp := *comment
+		tmp.ThreadPrimaryCommentID = dbThread.PrimaryCommentID
+		if err := comments.CreateExternalCommentReply(ctx, nil, tmp); err != nil {
+			return err
+		}
+	}
+	return nil
 }

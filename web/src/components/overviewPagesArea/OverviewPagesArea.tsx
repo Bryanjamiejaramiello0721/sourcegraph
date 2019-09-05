@@ -2,7 +2,7 @@ import { LoadingSpinner } from '@sourcegraph/react-loading-spinner'
 import H from 'history'
 import MapSearchIcon from 'mdi-react/MapSearchIcon'
 import React from 'react'
-import { Route, Switch, matchPath } from 'react-router'
+import { Route, Switch } from 'react-router'
 import { RouteDescriptor } from '../../util/contributions'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { HeroPage } from '../HeroPage'
@@ -16,8 +16,6 @@ export interface OverviewPagesAreaPage<P extends object> extends RouteDescriptor
     icon?: React.ComponentType<{ className?: string }>
     count?: number
     navbarDividerBefore?: boolean
-    hideInNavbar?: boolean
-    fullPage?: boolean
 }
 
 interface Props<P extends object> {
@@ -25,16 +23,6 @@ interface Props<P extends object> {
      * The props passed to subcomponents of the {@link OverviewPagesArea}.
      */
     context: P
-
-    /**
-     * A fragment rendered above the overview.
-     */
-    header: React.ReactFragment
-
-    /**
-     * The overview, which is shown above the page tab bar.
-     */
-    overviewComponent: React.ComponentType<P & { className?: string }>
 
     /**
      * The pages in this area.
@@ -55,8 +43,6 @@ interface Props<P extends object> {
  */
 export const OverviewPagesArea = <P extends object>({
     context,
-    header,
-    overviewComponent: OverviewComponent,
     pages: conditionalPages,
     className = '',
     match,
@@ -67,33 +53,16 @@ export const OverviewPagesArea = <P extends object>({
             !page.condition || page.condition(context)
     )
 
-    const matchingRoute = pages.find(page => matchPath(`${match.url}${page.path}`, location.pathname))
-    const fullPage = matchingRoute && matchingRoute.fullPage
-
     return (
         <div className={`overview-pages-area d-flex flex-column ${className}`}>
-            <ErrorBoundary location={location}>
-                <div className="container">
-                    {header}
-                    {!fullPage && <OverviewComponent {...context} className="pb-3" />}
-                </div>
-                {!fullPage && (
-                    <>
-                        <div className="w-100 border-bottom" />
-                        <OverviewPagesAreaNavbar
-                            areaUrl={match.url}
-                            pages={pages}
-                            className="flex-0 sticky-top bg-body"
-                        />
-                    </>
-                )}
-            </ErrorBoundary>
+            <div className="w-100 border-bottom" />
+            <OverviewPagesAreaNavbar areaUrl={match.url} pages={pages} className="flex-0 sticky-top bg-body" />
             <ErrorBoundary location={location}>
                 <React.Suspense fallback={<LoadingSpinner className="icon-inline m-2" />}>
                     <Switch>
-                        {pages.map((page, i) => (
+                        {pages.map(page => (
                             <Route
-                                key={i}
+                                key={page.path}
                                 path={`${match.url}${page.path}`}
                                 strict={true}
                                 exact={page.exact}

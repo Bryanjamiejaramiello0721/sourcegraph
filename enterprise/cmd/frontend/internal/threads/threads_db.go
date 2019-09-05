@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/actor"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/db"
+	commentobjectdb "github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/commentobjectdb"
+	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/types"
 	"github.com/sourcegraph/sourcegraph/pkg/api"
 	"github.com/sourcegraph/sourcegraph/pkg/db/dbconn"
 	"github.com/sourcegraph/sourcegraph/pkg/nnz"
@@ -19,13 +21,16 @@ import (
 
 // DBThread describes a thread.
 type DBThread struct {
-	ID           int64
-	RepositoryID api.RepoID // the repository associated with this thread
-	Title        string
-	State        string
-	Assignee     actor.DBColumns
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                        int64
+	RepositoryID              api.RepoID // the repository associated with this thread
+	Title                     string
+	IsDraft                   bool
+	IsPendingExternalCreation bool
+	State                     string
+	Assignee                  actor.DBColumns
+	PrimaryCommentID          int64
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 
 	// Changeset
 	BaseRef          string
@@ -33,6 +38,7 @@ type DBThread struct {
 	HeadRepositoryID int32
 	HeadRef          string
 	HeadRefOID       string
+	PendingPatch     string
 
 	ImportedFromExternalServiceID int64
 	ExternalID                    string
@@ -45,13 +51,17 @@ var errThreadNotFound = errors.New("thread not found")
 
 type dbThreads struct{}
 
-const SelectColumns = "id, repository_id, title, state, assignee_user_id, assignee_external_actor_username, assignee_external_actor_url, created_at, updated_at, base_ref, base_ref_oid, head_repository_id, head_ref, head_ref_oid, imported_from_external_service_id, external_id, external_metadata"
+const SelectColumns = "id, repository_id, title, is_draft, is_pending_external_creation, state, assignee_user_id, assignee_external_actor_username, assignee_external_actor_url, primary_comment_id, created_at, updated_at, base_ref, base_ref_oid, head_repository_id, head_ref, head_ref_oid, pending_patch, imported_from_external_service_id, external_id, external_metadata"
 
 // Create creates a thread. The thread argument's (Thread).ID field is ignored. The new thread is
 // returned.
-func (dbThreads) Create(ctx context.Context, tx *sql.Tx, thread *DBThread) (*DBThread, error) {
+func (dbThreads) Create(ctx context.Context, tx *sql.Tx, thread *DBThread, comment commentobjectdb.DBObjectCommentFields) (*DBThread, error) {
 	if mocks.threads.Create != nil {
 		return mocks.threads.Create(thread)
+	}
+
+	if thread.PrimaryCommentID != 0 {
+		panic("thread.PrimaryCommentID must not be set")
 	}
 
 	now := time.Now()
@@ -62,39 +72,53 @@ func (dbThreads) Create(ctx context.Context, tx *sql.Tx, thread *DBThread) (*DBT
 		return t
 	}
 
-	args := []interface{}{
-		thread.RepositoryID,
-		thread.Title,
-		thread.State,
-		nnz.Int32(thread.Assignee.UserID),
-		nnz.String(thread.Assignee.ExternalActorUsername),
-		nnz.String(thread.Assignee.ExternalActorURL),
-		nowIfZeroTime(thread.CreatedAt),
-		nowIfZeroTime(thread.UpdatedAt),
-		nnz.String(thread.BaseRef),
-		nnz.String(thread.BaseRefOID),
-		nnz.Int32(thread.HeadRepositoryID),
-		nnz.String(thread.HeadRef),
-		nnz.String(thread.HeadRefOID),
-		nnz.Int64(thread.ImportedFromExternalServiceID),
-		nnz.String(thread.ExternalID),
-		nnz.JSON(thread.ExternalMetadata),
-	}
-	query := sqlf.Sprintf(
-		`INSERT INTO threads(`+SelectColumns+`) VALUES(DEFAULT`+strings.Repeat(", %v", len(args))+`) RETURNING `+SelectColumns,
-		args...,
-	)
-	return dbThreads{}.scanRow(tx.QueryRowContext(ctx, query.Query(sqlf.PostgresBindVar), query.Args()...))
+	return thread, commentobjectdb.CreateCommentWithObject(ctx, tx, comment, func(ctx context.Context, tx *sql.Tx, commentID int64) (*types.CommentObject, error) {
+		args := []interface{}{
+			thread.RepositoryID,
+			thread.Title,
+			thread.IsDraft,
+			thread.IsPendingExternalCreation,
+			thread.State,
+			nnz.Int32(thread.Assignee.UserID),
+			nnz.String(thread.Assignee.ExternalActorUsername),
+			nnz.String(thread.Assignee.ExternalActorURL),
+			commentID,
+			nowIfZeroTime(thread.CreatedAt),
+			nowIfZeroTime(thread.UpdatedAt),
+			nnz.String(thread.BaseRef),
+			nnz.String(thread.BaseRefOID),
+			nnz.Int32(thread.HeadRepositoryID),
+			nnz.String(thread.HeadRef),
+			nnz.String(thread.HeadRefOID),
+			nnz.String(thread.PendingPatch),
+			nnz.Int64(thread.ImportedFromExternalServiceID),
+			nnz.String(thread.ExternalID),
+			nnz.JSON(thread.ExternalMetadata),
+		}
+		query := sqlf.Sprintf(
+			`INSERT INTO threads(`+SelectColumns+`) VALUES(DEFAULT`+strings.Repeat(", %v", len(args))+`) RETURNING `+SelectColumns,
+			args...,
+		)
+		var err error
+		thread, err = dbThreads{}.scanRow(tx.QueryRowContext(ctx, query.Query(sqlf.PostgresBindVar), query.Args()...))
+		if err != nil {
+			return nil, err
+		}
+		return &types.CommentObject{ThreadID: thread.ID}, nil
+	})
 }
 
 // TODO!(sqs)
 var Create = dbThreads{}.Create
 
 type dbThreadUpdate struct {
-	Title   *string
-	State   *string
-	BaseRef *string
-	HeadRef *string
+	Title                     *string
+	IsDraft                   *bool
+	IsPendingExternalCreation *bool
+	State                     *string
+	BaseRef                   *string
+	HeadRef                   *string
+	PendingPatch              *string
 }
 
 // Update updates a thread given its ID.
@@ -107,6 +131,12 @@ func (s dbThreads) Update(ctx context.Context, id int64, update dbThreadUpdate) 
 	if update.Title != nil {
 		setFields = append(setFields, sqlf.Sprintf("title=%s", *update.Title))
 	}
+	if update.IsDraft != nil {
+		setFields = append(setFields, sqlf.Sprintf("is_draft=%s", *update.IsDraft))
+	}
+	if update.IsPendingExternalCreation != nil {
+		setFields = append(setFields, sqlf.Sprintf("is_pending_external_creation=%s", *update.IsPendingExternalCreation))
+	}
 	if update.State != nil {
 		setFields = append(setFields, sqlf.Sprintf("state=%s", *update.State))
 	}
@@ -115,6 +145,9 @@ func (s dbThreads) Update(ctx context.Context, id int64, update dbThreadUpdate) 
 	}
 	if update.HeadRef != nil {
 		setFields = append(setFields, sqlf.Sprintf("head_ref=%s", *update.HeadRef))
+	}
+	if update.PendingPatch != nil {
+		setFields = append(setFields, sqlf.Sprintf("pending_patch=%s", *update.PendingPatch))
 	}
 
 	if len(setFields) == 0 {
@@ -270,10 +303,13 @@ func (dbThreads) scanRow(row interface {
 		&t.ID,
 		&t.RepositoryID,
 		&t.Title,
+		&t.IsDraft,
+		&t.IsPendingExternalCreation,
 		&t.State,
 		nnz.ToInt32(&t.Assignee.UserID),
 		(*nnz.String)(&t.Assignee.ExternalActorUsername),
 		(*nnz.String)(&t.Assignee.ExternalActorURL),
+		&t.PrimaryCommentID,
 		&t.CreatedAt,
 		&t.UpdatedAt,
 		(*nnz.String)(&t.BaseRef),
@@ -281,6 +317,7 @@ func (dbThreads) scanRow(row interface {
 		nnz.ToInt32(&t.HeadRepositoryID),
 		(*nnz.String)(&t.HeadRef),
 		(*nnz.String)(&t.HeadRefOID),
+		(*nnz.String)(&t.PendingPatch),
 		(*nnz.Int64)(&t.ImportedFromExternalServiceID),
 		(*nnz.String)(&t.ExternalID),
 		nnz.ToJSON(&t.ExternalMetadata),
@@ -365,6 +402,7 @@ func TestCreateThread(ctx context.Context, title string, repositoryID api.RepoID
 			RepositoryID: repositoryID,
 			Title:        title,
 		},
+		commentobjectdb.DBObjectCommentFields{Author: actor.DBColumns{UserID: authorUserID}},
 	)
 	if err != nil {
 		return 0, err

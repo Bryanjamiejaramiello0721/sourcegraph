@@ -23,13 +23,13 @@ func (v RepositoryFilter) IsApplied() bool                 { return v.IsApplied_
 
 // LabelFilter implements the LabelFilter GraphQL type.
 type LabelFilter struct {
-	Label_     *Label
+	Label_     Label
 	LabelName_ string
 	Count_     int32
 	IsApplied_ bool
 }
 
-func (v LabelFilter) Label() *Label     { return v.Label_ }
+func (v LabelFilter) Label() Label      { return v.Label_ }
 func (v LabelFilter) LabelName() string { return v.LabelName_ }
 func (v LabelFilter) Count() *int32     { return &v.Count_ }
 func (v LabelFilter) IsApplied() bool   { return v.IsApplied_ }

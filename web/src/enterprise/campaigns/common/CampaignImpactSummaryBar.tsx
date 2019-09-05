@@ -7,7 +7,7 @@ import { SummaryCountBar, SummaryCountItemDescriptor } from '../../../components
 import { DiffStat } from '../../../repo/compare/DiffStat'
 import { DiffIcon, GitPullRequestIcon } from '../../../util/octicons'
 import { CampaignImpactSummary } from './useCampaignImpactSummary'
-import AlertCircleOutlineIcon from 'mdi-react/AlertCircleOutlineIcon'
+import { DiagnosticsIcon } from '../../../diagnostics/icons'
 
 const LOADING = 'loading' as const
 
@@ -25,8 +25,15 @@ interface Context extends CampaignImpactSummary, Pick<Props, 'urlFragmentOrPath'
 
 const ITEMS: SummaryCountItemDescriptor<Context>[] = [
     {
+        noun: 'discussion',
+        icon: CommentTextMultipleIcon,
+        count: c => c.discussions,
+        condition: c => c.discussions > 0,
+        url: c => c.baseURL,
+    },
+    {
         noun: 'issue',
-        icon: AlertCircleOutlineIcon,
+        icon: DiagnosticsIcon,
         count: c => c.issues,
         condition: c => c.issues > 0,
         url: c => `${c.baseURL}${c.urlFragmentOrPath}threads`,
@@ -44,6 +51,13 @@ const ITEMS: SummaryCountItemDescriptor<Context>[] = [
         count: c => c.participants,
         condition: c => c.participants > 0,
         url: c => (c.participants > 0 ? `${c.baseURL}${c.urlFragmentOrPath}participants` : undefined),
+    },
+    {
+        noun: 'diagnostic',
+        icon: DiagnosticsIcon,
+        count: c => c.diagnostics,
+        url: c => (c.diagnostics > 0 ? `${c.baseURL}${c.urlFragmentOrPath}diagnostics` : undefined),
+        condition: c => c.diagnostics > 0,
     },
     {
         noun: 'repository affected',

@@ -1,8 +1,9 @@
 import { NotificationType } from '@sourcegraph/extension-api-classes'
 import H from 'history'
+import CloseIcon from 'mdi-react/CloseIcon'
 import PencilIcon from 'mdi-react/PencilIcon'
 import React, { useCallback, useState } from 'react'
-import { map } from 'rxjs/operators'
+import { map, mapTo } from 'rxjs/operators'
 import { Markdown } from '../../../../shared/src/components/Markdown'
 import { ExtensionsControllerProps } from '../../../../shared/src/extensions/controller'
 import { dataOrThrowErrors, gql } from '../../../../shared/src/graphql/graphql'
@@ -33,6 +34,23 @@ const editComment = (
         .pipe(
             map(dataOrThrowErrors),
             map(data => data.editComment)
+        )
+        .toPromise()
+
+const deleteComment = (args: GQL.IDeleteCommentOnMutationArguments): Promise<void> =>
+    mutateGraphQL(
+        gql`
+            mutation DeleteComment($comment: ID!) {
+                deleteComment(comment: $comment) {
+                    alwaysNil
+                }
+            }
+        `,
+        args
+    )
+        .pipe(
+            map(dataOrThrowErrors),
+            mapTo(undefined)
         )
         .toPromise()
 
@@ -91,6 +109,32 @@ export const Comment: React.FunctionComponent<Props> = ({
         [comment.id, onCommentUpdate, props.extensionsController.services.notifications.showMessages]
     )
 
+    const [isDeleteLoading, setIsDeleteLoading] = useState(false)
+    const onDelete = useCallback(() => {
+        if (!confirm('Really delete this comment?')) {
+            return
+        }
+        // tslint:disable-next-line: no-floating-promises
+        ;(async () => {
+            setIsDeleteLoading(true)
+            try {
+                if (!onCommentUpdate) {
+                    throw new Error('onCommentUpdate callback not set')
+                }
+                await deleteComment({ comment: comment.id })
+                setIsDeleteLoading(false)
+                setIsEditing(false)
+                onCommentUpdate()
+            } catch (err) {
+                setIsDeleteLoading(false)
+                props.extensionsController.services.notifications.showMessages.next({
+                    message: `Error deleting comment: ${err.message}`,
+                    type: NotificationType.Error,
+                })
+            }
+        })()
+    }, [comment.id, onCommentUpdate, props.extensionsController.services.notifications.showMessages])
+
     return (
         <Tag className={`comment card ${className}`}>
             <div className="card-header d-flex align-items-center justify-content-between">
@@ -109,8 +153,21 @@ export const Comment: React.FunctionComponent<Props> = ({
                                 className="btn btn-sm btn-link text-muted p-1"
                                 onClick={onEdit}
                                 aria-label="Edit comment"
+                                disabled={isDeleteLoading}
                             >
                                 <PencilIcon className="icon-inline" />
+                            </button>
+                        )}
+                        {comment.__typename === 'CommentReply' && (
+                            <button
+                                className="btn btn-sm btn-link text-muted p-1"
+                                onClick={onDelete}
+                                aria-label="Delete comment"
+                                disabled={isDeleteLoading}
+                                // TODO!(sqs): dont show on primary comment for campaigns/threads, add
+                                // new viewerCanDeleteComment to graphql or something?
+                            >
+                                <CloseIcon className="icon-inline" />
                             </button>
                         )}
                     </span>

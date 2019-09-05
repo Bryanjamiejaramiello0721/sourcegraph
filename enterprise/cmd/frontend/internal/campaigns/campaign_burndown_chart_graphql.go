@@ -28,7 +28,10 @@ func campaignBurndownChart(ctx context.Context, campaign interface {
 		// The creation date of ThreadPreviews is now, so we ignore them for the purpose of
 		// computing earliestCreationDate.
 		if thread.Thread != nil {
-			createdAt := thread.Thread.CreatedAt()
+			createdAt, err := thread.Thread.CreatedAt(ctx)
+			if err != nil {
+				return nil, err
+			}
 			if createdAt.Time.Before(earliestCreationDate) {
 				earliestCreationDate = createdAt.Time
 			}

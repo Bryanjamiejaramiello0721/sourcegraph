@@ -1,6 +1,7 @@
 package commitstatuses
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -14,7 +15,8 @@ func TestDB_CommitStatusContexts(t *testing.T) {
 		t.Skip()
 	}
 	resetMocks()
-	ctx := dbtesting.TestContext(t)
+	dbtesting.SetupGlobalTestDB(t)
+	ctx := context.Background()
 
 	if err := db.Repos.Upsert(ctx, api.InsertRepoOp{Name: "r0", Enabled: true}); err != nil {
 		t.Fatal(err)

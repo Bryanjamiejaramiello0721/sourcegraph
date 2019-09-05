@@ -1,10 +1,15 @@
 import React, { useCallback } from 'react'
 import * as GQL from '../../../../../shared/src/graphql/schema'
 import { Form } from '../../../components/Form'
+import { useLocalStorage } from '../../../util/useLocalStorage'
 import { CampaignFormCommonFields } from './CampaignFormCommonFields'
 
-export interface CampaignFormData extends GQL.ICreateCampaignInput {
+export interface CampaignFormData
+    extends Pick<GQL.ICreateCampaignInput, Exclude<keyof GQL.ICreateCampaignInput, 'extensionData'>> {
     isValid: boolean
+    draft: boolean
+    startDate?: string // TODO!(sqs): implement
+    dueDate?: string // TODO!(sqs): implement
 }
 
 export interface CampaignFormControl {
@@ -35,6 +40,15 @@ export const CampaignForm: React.FunctionComponent<
         [parentOnSubmit]
     )
 
+    const [isCreateCampaignInputVisible, setIsCreateCampaignInputVisible] = useLocalStorage(
+        'CampaignForm.isCreateCampaignInputVisible',
+        false
+    )
+    const toggleIsCreateCampaignInputVisible = useCallback(
+        () => setIsCreateCampaignInputVisible(!isCreateCampaignInputVisible),
+        [isCreateCampaignInputVisible, setIsCreateCampaignInputVisible]
+    )
+
     return (
         <Form className={`form ${className}`} onSubmit={onSubmit}>
             <style>{'.form-group { max-width: 45rem; }' /* TODO!(sqs): hack */}</style>
@@ -49,6 +63,16 @@ export const CampaignForm: React.FunctionComponent<
                     />
                 ),
             })}
+            <div className="form-group mt-4">
+                <button type="button" className="btn btn-sm btn-link ml-2" onClick={toggleIsCreateCampaignInputVisible}>
+                    {isCreateCampaignInputVisible ? 'Hide' : 'Show'} JSON
+                </button>
+            </div>
+            {isCreateCampaignInputVisible && (
+                <pre className="small mt-4 border p-2 overflow-auto">
+                    <code>{JSON.stringify(value, null, 2)}</code>
+                </pre>
+            )}
         </Form>
     )
 }

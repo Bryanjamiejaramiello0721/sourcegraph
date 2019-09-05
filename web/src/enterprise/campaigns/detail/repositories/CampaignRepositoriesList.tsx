@@ -35,6 +35,8 @@ export const CampaignRepositoriesList: React.FunctionComponent<Props> = ({ campa
                     <LoadingSpinner className="icon-inline mt-3" />
                 ) : isErrorLike(repositories) ? (
                     <div className="alert alert-danger mt-3">{repositories.message}</div>
+                ) : repositories.length === 0 ? (
+                    <p className="text-muted">No changes.</p>
                 ) : (
                     repositories.map((c, i) => (
                         <li key={i} className="list-group-item">

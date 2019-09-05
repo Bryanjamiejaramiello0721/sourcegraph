@@ -26,7 +26,7 @@ type RepositoryComparison interface {
 	BaseRepository() *RepositoryResolver
 	HeadRepository() *RepositoryResolver
 	Range(context.Context) (GitRevisionRange, error)
-	Commits(*graphqlutil.ConnectionArgs) *gitCommitConnectionResolver
+	Commits(*graphqlutil.ConnectionArgs) GitCommitConnection
 	FileDiffs(*graphqlutil.ConnectionArgs) FileDiffConnection
 }
 
@@ -139,13 +139,13 @@ func (r *RepositoryComparisonResolver) Range(context.Context) (GitRevisionRange,
 func NewGitRevisionRange(baseRevspec resolvedRevspec, baseRepo *RepositoryResolver, headRevspec resolvedRevspec, headRepo *RepositoryResolver) GitRevisionRange {
 	return &gitRevisionRange{
 		expr:      baseRevspec.expr + "..." + headRevspec.expr,
-		base:      &gitRevSpec{expr: &gitRevSpecExpr{expr: baseRevspec.expr, oid: GitObjectID(baseRevspec.commitID), repo: baseRepo}},
-		head:      &gitRevSpec{expr: &gitRevSpecExpr{expr: headRevspec.expr, oid: GitObjectID(headRevspec.commitID), repo: headRepo}},
+		base:      &gitRevSpec{expr: &gitRevSpecExpr{expr: baseRevspec.expr, oid: GitObjectID(baseRevspec.commitID), nullObjectIfEmptyOID: true, repo: baseRepo}},
+		head:      &gitRevSpec{expr: &gitRevSpecExpr{expr: headRevspec.expr, oid: GitObjectID(headRevspec.commitID), nullObjectIfEmptyOID: true, repo: headRepo}},
 		mergeBase: nil, // not currently used
 	}
 }
 
-func (r *RepositoryComparisonResolver) Commits(args *graphqlutil.ConnectionArgs) *gitCommitConnectionResolver {
+func (r *RepositoryComparisonResolver) Commits(args *graphqlutil.ConnectionArgs) GitCommitConnection {
 	return &gitCommitConnectionResolver{
 		revisionRange: string(r.baseRevspec.commitID) + ".." + string(r.headRevspec.commitID),
 		first:         args.First,
@@ -376,6 +376,9 @@ func (r *fileDiffResolver) NewFile() *gitTreeEntryResolver {
 }
 
 func (r *fileDiffResolver) MostRelevantFile() *gitTreeEntryResolver {
+	if r.base == nil && r.head == nil {
+		return nil
+	}
 	if newFile := r.NewFile(); newFile != nil {
 		return newFile
 	}
