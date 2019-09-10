@@ -1,21 +1,19 @@
-package git
+package server
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/go-kit/kit/log/level"
-	"github.com/sourcegraph/sourcegraph/pkg/gitserver"
+	"github.com/sourcegraph/go-diff/diff"
+	"github.com/sourcegraph/sourcegraph/pkg/gitserver/protocol"
 )
 
-const (
-	SHAAllZeros  = "0000000000000000000000000000000000000000"
-	SHAEmptyBlob = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
-)
+const shaAllZeros = "0000000000000000000000000000000000000000"
 
 // Tree represents a git tree (i.e., "git ls-tree -r -d").
 type Tree struct {
@@ -233,8 +231,47 @@ func objectTypeForMode(modeStr string) (string, error) {
 	}
 }
 
-func CreateTree(ctx context.Context, repo gitserver.Repo, base string, ops TODO) (string, error) {
-	tree, err := listTreeFull(ctx, repo, base)
+func createCommitFromTree(ctx context.Context, repoDir string, tree string, isRootCommit bool, req protocol.CreateCommitFromPatchRequest) (oid string, err error) {
+	args := []string{"commit-tree", "-m", req.CommitInfo.Message}
+	if !isRootCommit {
+		parent, err := objectNameSHA(ctx, repoDir, string(req.BaseCommit)+"^{commit}")
+		if err != nil {
+			return "", err
+		}
+		args = append(args, "-p", parent)
+	}
+	args = append(args, tree)
+	cmd := exec.CommandContext(ctx, "git", args...)
+	setGitEnvForCommit(cmd, req)
+	cmd.Dir = repoDir
+	oidBytes, err := cmd.Output()
+	return string(bytes.TrimSpace(oidBytes)), err
+}
+
+func objectNameSHA(ctx context.Context, repoDir string, arg string) (string, error) {
+	if !strings.Contains(arg, "^") {
+		panic("arg should have a type-peeling operator like ^{commit}, or else all 40-hex-char args will be treated as valid even if they don't refer to anything")
+	}
+	if err := checkSpecArgSafety(arg); err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--verify", arg)
+	cmd.Dir = repoDir
+	sha, err := cmd.Output()
+	return string(bytes.TrimSpace(sha)), err
+}
+
+func createCommitFromPatch(ctx context.Context, repoDir string, req protocol.CreateCommitFromPatchRequest) (string, error) {
+	tree, err := createTreeFromPatch(ctx, repoDir, string(req.BaseCommit), []byte(req.Patch))
+	if err != nil {
+		return "", err
+	}
+	// TODO!(sqs): set committer, message, etc
+	return createCommitFromTree(ctx, repoDir, tree, false, req)
+}
+
+func createTreeFromPatch(ctx context.Context, repoDir string, base string, rawDiff []byte) (string, error) {
+	tree, err := listTreeFull(ctx, repoDir, base)
 	if err != nil {
 		return "", err
 	}
@@ -244,7 +281,7 @@ func CreateTree(ctx context.Context, repo gitserver.Repo, base string, ops TODO)
 			panic(fmt.Sprintf("expected stripped filename, got %q", filename))
 		}
 		e := tree.Get(filename)
-		newOID, err := hashObject(ctx, repo, "blob", filename, newData)
+		newOID, err := hashObject(ctx, repoDir, "blob", filename, newData)
 		if err != nil {
 			return err
 		}
@@ -256,210 +293,93 @@ func CreateTree(ctx context.Context, repo gitserver.Repo, base string, ops TODO)
 		}})
 	}
 
-	created := make(map[string]struct{})
-	originatedFrom := make(map[string]string)
-	for _, iop := range ops {
-		switch op := iop.(type) {
-		case ot.FileCopy:
-			src, dst := op.Src, op.Dst
-			if isBufferPath(src) && isFilePath(dst) && stripFileOrBufferPath(src) == stripFileOrBufferPath(dst) {
-				// Save
-				data, err := fbuf.ReadFile(stripFileOrBufferPath(src))
-				if err != nil {
-					return "", err
-				}
-				if err := updateGitFile(stripFileOrBufferPath(src), data); err != nil {
-					return "", err
-				}
-				if err := fbuf.Remove(stripFileOrBufferPath(src)); err != nil {
-					return "", err
-				}
-			} else if isBufferPath(src) {
-				panic("not yet implemented")
+	fileDiffs, err := diff.ParseMultiFileDiff(rawDiff)
+	if err != nil {
+		return "", err
+	}
+
+	for _, fileDiff := range fileDiffs {
+		fileDiff.OrigName = strings.TrimPrefix(fileDiff.OrigName, "a/")
+		fileDiff.NewName = strings.TrimPrefix(fileDiff.NewName, "b/")
+		switch {
+		case fileDiff.OrigName != "/dev/null" && fileDiff.NewName != "/dev/null": // modify file
+			if fileDiff.OrigName != fileDiff.NewName {
+				panic("TODO!(sqs): renames not handled")
 			}
-			if isBufferPath(dst) {
-				data, _, _, err := gitRepo.ReadBlob(base, stripFileOrBufferPath(src))
-				if err != nil {
-					return "", err
-				}
-				if err := fbuf.Exists(stripFileOrBufferPath(dst)); !os.IsNotExist(err) {
-					err = fmt.Errorf("copy %q to %q: destination file %q already exists", src, dst, dst)
-					if panicOnSomeErrors {
-						panic(err)
-					}
-					return "", err
-				}
-				if err := fbuf.WriteFile(stripFileOrBufferPath(dst), data, 0666); err != nil {
-					return "", err
-				}
-			} else {
-				// TODO(sqs): handle copy-then-modify
-				mode, sha, err := gitRepo.FileInfoForPath(base, stripFileOrBufferPath(src))
-				if err != nil {
-					return "", err
-				}
-				if err := tree.ApplyChanges([]*ChangedFile{{
-					Status:  "C",
-					SrcMode: mode, DstMode: mode,
-					SrcSHA: sha, DstSHA: sha,
-					SrcPath: stripFileOrBufferPath(src), DstPath: stripFileOrBufferPath(dst),
-				}}); err != nil {
-					level.Error(logger).Log("tree-apply-changes-failed", err, "src", src, "dst", dst, "base", base, "op", op)
-					return "", err
-				}
+			origData, _, _, err := readBlob(ctx, repoDir, base, fileDiff.OrigName)
+			if err != nil {
+				return "", err
 			}
-			originatedFrom[dst] = src
-		case ot.FileRename:
-			src, dst := op.Src, op.Dst
-			if isBufferPath(src) || isBufferPath(dst) {
-				panic("not yet implemented")
+			newData := applyPatch(origData, fileDiff)
+			if err := updateGitFile(fileDiff.OrigName, newData); err != nil {
+				return "", err
 			}
 
-			// TODO(sqs): handle rename-then-modify
-			mode, sha, err := gitRepo.FileInfoForPath(base, stripFileOrBufferPath(src))
+		case fileDiff.OrigName == "/dev/null": // create file
+			newData := applyPatch(nil, fileDiff)
+
+			// Ensure we have the object for the empty blob.
+			//
+			// NOTE: This *almost* always produces the
+			// SHAEmptyBlob oid, but you can hack gitattributes to
+			// make this return something else, and we want to avoid
+			// making assumptions about your git repo that could ever be
+			// violated.
+			//
+			// TODO(sqs): could optimize by leaving the dstSHA blank for
+			// newly created files that we have nonzero edits for (we will
+			// compute the dstSHA again for those files anyway).
+			oid, err := hashObject(ctx, repoDir, "blob", fileDiff.NewName, newData)
+			if err != nil {
+				return "", err
+			}
+
+			// We will fill in the dstSHA below in Edit when we have the
+			// file contents, if we have edits.
+			if err := tree.ApplyChanges([]*ChangedFile{{
+				Status:  "A",
+				SrcMode: shaAllZeros, DstMode: RegularFileNonExecutableMode,
+				SrcSHA: shaAllZeros, DstSHA: oid,
+				SrcPath: fileDiff.NewName,
+			}}); err != nil {
+				return "", err
+			}
+
+		case fileDiff.NewName == "/dev/null": // delete file
+			mode, sha, err := fileInfoForPath(ctx, repoDir, base, fileDiff.OrigName)
 			if err != nil {
 				return "", err
 			}
 			if err := tree.ApplyChanges([]*ChangedFile{{
-				Status:  "R",
-				SrcMode: mode, DstMode: mode,
-				SrcSHA: sha, DstSHA: sha,
-				SrcPath: stripFileOrBufferPath(src), DstPath: stripFileOrBufferPath(dst),
+				Status:  "D",
+				SrcMode: mode, DstMode: shaAllZeros,
+				SrcSHA: sha, DstSHA: shaAllZeros,
+				SrcPath: fileDiff.OrigName,
 			}}); err != nil {
 				return "", err
 			}
-			originatedFrom[dst] = src
-		case ot.FileCreate:
-			f := op.File
-			created[f] = struct{}{}
 
-			if isBufferPath(f) {
-				if err := fbuf.WriteFile(stripFileOrBufferPath(f), nil, 0666); err != nil {
-					return "", err
-				}
-			} else {
-				// Ensure we have the object for the empty blob.
-				//
-				// NOTE: This *almost* always produces the
-				// SHAEmptyBlob oid, but you can hack gitattributes to
-				// make this return something else, and we want to avoid
-				// making assumptions about your git repo that could ever be
-				// violated.
-				//
-				// TODO(sqs): could optimize by leaving the dstSHA blank for
-				// newly created files that we have nonzero edits for (we will
-				// compute the dstSHA again for those files anyway).
-				oid, err := gitRepo.HashObject("blob", stripFileOrBufferPath(f), nil)
-				if err != nil {
-					return "", err
-				}
-
-				// We will fill in the dstSHA below in Edit when we have the
-				// file contents, if we have edits.
-				if err := tree.ApplyChanges([]*ChangedFile{{
-					Status:  "A",
-					SrcMode: SHAAllZeros, DstMode: RegularFileNonExecutableMode,
-					SrcSHA: SHAAllZeros, DstSHA: oid,
-					SrcPath: stripFileOrBufferPath(f),
-				}}); err != nil {
-					return "", err
-				}
-			}
-		case ot.FileDelete:
-			f := op.File
-			if isBufferPath(f) {
-				if err := fbuf.Remove(stripFileOrBufferPath(f)); err != nil {
-					return "", err
-				}
-			} else {
-				mode, sha, err := gitRepo.FileInfoForPath(base, stripFileOrBufferPath(f))
-				if err != nil {
-					return "", err
-				}
-				if err := tree.ApplyChanges([]*ChangedFile{{
-					Status:  "D",
-					SrcMode: mode, DstMode: SHAAllZeros,
-					SrcSHA: sha, DstSHA: SHAAllZeros,
-					SrcPath: stripFileOrBufferPath(f),
-				}}); err != nil {
-					return "", err
-				}
-			}
-		case ot.FileTruncate:
-			f := op.File
-			if isBufferPath(f) {
-				if err := fbuf.WriteFile(stripFileOrBufferPath(f), nil, 0666); err != nil {
-					return "", err
-				}
-			} else {
-				if err := updateGitFile(stripFileOrBufferPath(f), nil); err != nil {
-					return "", err
-				}
-			}
-		case ot.FileEdit:
-			f, edits := op.File, op.Edits
-			if len(edits) == 0 {
-				continue
-			}
-
-			var data []byte
-			var err error
-			if _, created := created[f]; created {
-				// no data yet
-				data = []byte{}
-			} else if isBufferPath(f) {
-				data, err = fbuf.ReadFile(stripFileOrBufferPath(f))
-			} else {
-				f0, ok := originatedFrom[f]
-				if ok && !isFilePath(f0) {
-					panic(fmt.Sprintf("not implemented: edit of a disk file %q derived from buffer file %q", f, f0))
-				}
-				if !ok {
-					f0 = f
-				}
-				data, _, _, err = gitRepo.ReadBlob(base, stripFileOrBufferPath(f0))
-			}
-			if err != nil {
-				return "", err
-			}
-
-			doc := ot.Doc(string(data))
-			if err := doc.Apply(edits); err != nil {
-				err := zap.Errorf(zap.ErrorCodeInvalidOp, "apply OT edit to %s @ %s: %s (doc: %q, op: %v)", f, base, err, data, op)
-				if panicOnSomeErrors {
-					level.Error(logger).Log("PANIC-BELOW", "")
-					panic(err)
-				}
-				return "", err
-			}
-
-			if isBufferPath(f) {
-				if err := fbuf.WriteFile(stripFileOrBufferPath(f), []byte(string(doc)), 0666); err != nil {
-					return "", err
-				}
-			} else {
-				if err := updateGitFile(stripFileOrBufferPath(f), []byte(string(doc))); err != nil {
-					return "", err
-				}
-			}
+		default:
+			panic("unhandled")
 		}
 	}
+
 	if tree == nil {
 		return "", nil // indicates no new tree SHA was created
 	}
-	return gitRepo.CreateTree("", tree.Root)
+	return createTree(ctx, repoDir, "", tree.Root)
 }
 
-func listTreeFull(ctx context.Context, repo gitserver.Repo, head string) (*Tree, error) {
+func listTreeFull(ctx context.Context, repoDir string, head string) (*Tree, error) {
 	if err := checkSpecArgSafety(head); err != nil {
 		return nil, err
 	}
 
 	// This is pretty fast, even on large repositories (45ms on the
 	// Sourcegraph repository).
-	cmd := gitserver.DefaultClient.Command("git", "ls-tree", "-r", "-t", "-z", "--full-tree", "--full-name", head)
-	cmd.Repo = repo
-	out, err := cmd.Output(ctx)
+	cmd := exec.CommandContext(ctx, "git", "ls-tree", "-r", "-t", "-z", "--full-tree", "--full-name", head)
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -479,8 +399,8 @@ func listTreeFull(ctx context.Context, repo gitserver.Repo, head string) (*Tree,
 	return &t, nil
 }
 
-func readBlob(ctx context.Context, treeish, path string) (data []byte, mode, oid string, err error) {
-	mode, oid, err = fileInfoForPath(ctx, treeish, path)
+func readBlob(ctx context.Context, repoDir string, treeish, path string) (data []byte, mode, oid string, err error) {
+	mode, oid, err = fileInfoForPath(ctx, repoDir, treeish, path)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -498,15 +418,19 @@ func readBlob(ctx context.Context, treeish, path string) (data []byte, mode, oid
 	if err := checkSpecArgSafety(path); err != nil {
 		return nil, "", "", err
 	}
-	contents, err := r.Exec(nil, "cat-file", typ, oid)
+	cmd := exec.CommandContext(ctx, "git", "cat-file", typ, oid)
+	cmd.Dir = repoDir
+	contents, err := cmd.Output()
 	if err != nil {
 		return nil, "", "", err
 	}
 	return contents, mode, oid, nil
 }
 
-func fileInfoForPath(ctx context.Context, treeish, path string) (mode, oid string, err error) {
-	out, err := r.Exec(nil, "ls-tree", "-z", "-t", "--full-name", "--full-tree", "--", treeish, path)
+func fileInfoForPath(ctx context.Context, repoDir string, treeish, path string) (mode, oid string, err error) {
+	cmd := exec.CommandContext(ctx, "git", "ls-tree", "-z", "-t", "--full-name", "--full-tree", "--", treeish, path)
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
 	if err != nil {
 		return "", "", err
 	}
@@ -522,12 +446,12 @@ func fileInfoForPath(ctx context.Context, treeish, path string) (mode, oid strin
 	return "", "", &os.PathError{Op: "gitFileInfoForPath (tree: " + treeish + ")", Path: path, Err: os.ErrNotExist}
 }
 
-func createTree(ctx context.Context, basePath string, entries []*TreeEntry) (string, error) {
+func createTree(ctx context.Context, repoDir string, basePath string, entries []*TreeEntry) (string, error) {
 	var buf bytes.Buffer // output in the "git ls-tree" format
 	for _, e := range entries {
 		// Entries that were added, and the ancestor trees thereof,
 		// have empty or all-zero SHAs.
-		if e.OID == "" || e.OID == SHAAllZeros {
+		if e.OID == "" || e.OID == shaAllZeros {
 			path := filepath.Join(basePath, e.Name)
 
 			switch e.Type {
@@ -536,7 +460,7 @@ func createTree(ctx context.Context, basePath string, entries []*TreeEntry) (str
 
 			case "tree":
 				var err error
-				e.OID, err = r.CreateTree(path, e.Entries)
+				e.OID, err = createTree(ctx, repoDir, path, e.Entries)
 				if err != nil {
 					return "", err
 				}
@@ -556,29 +480,88 @@ func createTree(ctx context.Context, basePath string, entries []*TreeEntry) (str
 		fmt.Fprintf(&buf, "%s %s %s\t%s\x00", e.Mode, e.Type, e.OID, e.Name)
 	}
 
-	const commitVerbose = false // DEV
-
-	stdinBytes := buf.Bytes()
-	oidBytes, err := r.Exec(stdinBytes, "mktree", "-z")
+	cmd := exec.CommandContext(ctx, "git", "mktree", "-z")
+	cmd.Dir = repoDir
+	cmd.Stdin = &buf
+	oidBytes, err := cmd.Output()
 	if err != nil {
-		if commitVerbose {
-			return "", fmt.Errorf("%s\n\nstdin input follows:\n%s", err, stdinBytes)
-		}
 		return "", err
 	}
 	return string(bytes.TrimSpace(oidBytes)), nil
 }
 
-func hashObject(ctx context.Context, repo gitserver.Repo, typ, path string, data []byte) (oid string, err error) {
+func hashObject(ctx context.Context, repoDir string, typ, path string, data []byte) (oid string, err error) {
 	if err := checkSpecArgSafety(typ); err != nil {
 		return "", err
 	}
 	if err := checkSpecArgSafety(path); err != nil {
 		return "", err
 	}
-	cmd := gitserver.DefaultClient.Command("git", "hash-object", "-t", typ, "-w", "--stdin", "--path", path)
-	cmd.Repo = repo
-	cmd.Stdin
-	oidBytes, err := cmd.Output(ctx)
+	cmd := exec.CommandContext(ctx, "git", "hash-object", "-t", typ, "-w", "--stdin", "--path", path)
+	cmd.Dir = repoDir
+	cmd.Stdin = bytes.NewReader(data)
+	oidBytes, err := cmd.Output()
 	return string(bytes.TrimSpace(oidBytes)), err
+}
+
+func parseLsTreeLine(line []byte) (mode, typ, oid, path string, err error) {
+	partsTab := bytes.SplitN(line, []byte("\t"), 2)
+	if len(partsTab) != 2 {
+		err = fmt.Errorf("bad ls-tree line: %q", line)
+		return
+	}
+
+	path = string(partsTab[1])
+	partsFirst := bytes.Split(partsTab[0], []byte(" "))
+	if len(partsFirst) != 3 {
+		err = fmt.Errorf("bad ls-tree line section (before first TAB): %q", partsTab[0])
+		return
+	}
+	mode = string(partsFirst[0])
+	typ = string(partsFirst[1])
+	oid = string(partsFirst[2])
+	return
+}
+
+func splitNullsBytes(s []byte) [][]byte {
+	if len(s) == 0 {
+		return nil
+	}
+	if s[len(s)-1] == '\x00' {
+		s = s[:len(s)-1]
+	}
+	if len(s) == 0 {
+		return nil
+	}
+	return bytes.Split(s, []byte("\x00"))
+}
+
+// TODO!(sqs): this is pretty hacky and not comprehensive, also TODO!(sqs): check bounds and return error not panic
+func applyPatch(data []byte, fileDiff *diff.FileDiff) []byte {
+	lines := bytes.SplitAfter(data, []byte("\n"))
+	for _, hunk := range fileDiff.Hunks {
+		hunkLines := bytes.SplitAfter(hunk.Body, []byte("\n"))
+		origAdjust := 0
+		for _, hunkLine := range hunkLines {
+			if len(hunkLine) == 0 {
+				continue
+			}
+			switch hunkLine[0] {
+			case '-': // remove line
+				l := int(hunk.NewStartLine-1) + origAdjust
+				lines = append(lines[:l], lines[l+1:]...)
+			case '+': // add line
+				l := int(hunk.NewStartLine-1) + origAdjust
+				lines = append(lines, nil)
+				copy(lines[l+1:], lines[l:])
+				lines[l] = hunkLine[1:]
+				origAdjust++
+			case ' ': // unchanged
+				origAdjust++
+			default:
+				panic("unhandled")
+			}
+		}
+	}
+	return bytes.Join(lines, nil)
 }
