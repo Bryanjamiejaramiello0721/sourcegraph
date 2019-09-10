@@ -54,6 +54,7 @@ require (
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
 	github.com/go-critic/go-critic v0.3.4 // indirect
 	github.com/go-delve/delve v1.3.0
+	github.com/go-kit/kit v0.8.0
 	github.com/go-redsync/redsync v1.3.0
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.0 // indirect
