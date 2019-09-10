@@ -80,11 +80,18 @@ func (r schemaResolver) UpdateThread(ctx context.Context, arg *UpdateThreadArgs)
 	return Threads.UpdateThread(ctx, arg)
 }
 
-func (r schemaResolver) PublishDraftThread(ctx context.Context, arg *PublishDraftThreadArgs) (Thread, error) {
+func (r schemaResolver) MarkThreadAsReady(ctx context.Context, arg *MarkThreadAsReadyArgs) (Thread, error) {
 	if Threads == nil {
 		return nil, errThreadsNotImplemented
 	}
-	return Threads.PublishDraftThread(ctx, arg)
+	return Threads.MarkThreadAsReady(ctx, arg)
+}
+
+func (r schemaResolver) PublishThreadToExternalService(ctx context.Context, arg *PublishThreadToExternalServiceArgs) (Thread, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.PublishThreadToExternalService(ctx, arg)
 }
 
 func (r schemaResolver) DeleteThread(ctx context.Context, arg *DeleteThreadArgs) (*EmptyResponse, error) {
@@ -102,7 +109,8 @@ type ThreadsResolver interface {
 	// Mutations
 	CreateThread(context.Context, *CreateThreadArgs) (Thread, error)
 	UpdateThread(context.Context, *UpdateThreadArgs) (Thread, error)
-	PublishDraftThread(context.Context, *PublishDraftThreadArgs) (Thread, error)
+	MarkThreadAsReady(context.Context, *MarkThreadAsReadyArgs) (Thread, error)
+	PublishThreadToExternalService(context.Context, *PublishThreadToExternalServiceArgs) (Thread, error)
 	DeleteThread(context.Context, *DeleteThreadArgs) (*EmptyResponse, error)
 
 	// ThreadByID is called by the ThreadByID func but is not in the GraphQL API.
@@ -153,7 +161,11 @@ type UpdateThreadArgs struct {
 	}
 }
 
-type PublishDraftThreadArgs struct {
+type MarkThreadAsReadyArgs struct {
+	Thread graphql.ID
+}
+
+type PublishThreadToExternalServiceArgs struct {
 	Thread graphql.ID
 }
 

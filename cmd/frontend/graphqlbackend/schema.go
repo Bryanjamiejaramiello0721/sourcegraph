@@ -378,9 +378,13 @@ type Mutation {
     # Update a thread. Returns the updated thread.
     updateThread(input: UpdateThreadInput!): Thread!
 
-    # Publish a draft thread. This results in the thread's branch, issue/changeset, and notifications
+    # Mark a draft thread as ready. The updated thread is returned.
+    markThreadAsReady(thread: ID!): Thread!
+
+    # Publish a thread that is pending external creation. This results in the thread being created
+    # on its external service, including any associated branch, issue/changeset, and notifications
     # being created immediately. The updated thread is returned.
-    publishDraftThread(thread: ID!): Thread!
+    publishThreadToExternalService(thread: ID!): Thread!
 
     # Delete a thread.
     deleteThread(thread: ID!): EmptyResponse

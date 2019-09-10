@@ -2,13 +2,15 @@ import H from 'history'
 import React from 'react'
 import { ExtensionsControllerProps } from '../../../../../shared/src/extensions/controller'
 import * as GQL from '../../../../../shared/src/graphql/schema'
+import { PublishThreadToExternalServiceButton } from '../common/PublishThreadToExternalServiceButton'
 import { Comment } from '../../comments/Comment'
 import { ThreadHeaderEditableTitle } from './header/ThreadHeaderEditableTitle'
 import { ThreadAreaContext } from './ThreadArea'
 import { Timeline } from '../../../components/timeline/Timeline'
 import { GitPullRequestIcon } from '../../../util/octicons'
 import { IsDraftTimelineBox } from '../../campaigns/common/IsDraftTimelineBox'
-import { PublishDraftThreadButton } from '../common/PublishDraftThreadButton'
+import { IsPendingExternalCreationTimelineBox } from './timeline/IsPendingExternalCreationTimelineBox'
+import { MarkThreadAsReadyButton } from '../common/MarkThreadAsReadyButton'
 
 interface Props extends Pick<ThreadAreaContext, 'thread' | 'onThreadUpdate'>, ExtensionsControllerProps {
     className?: string
@@ -39,11 +41,11 @@ export const ThreadOverview: React.FunctionComponent<Props> = ({
                 createdVerb={THREAD_COMMENT_CREATED_VERB}
                 emptyBody={THREAD_COMMENT_EMPTY_BODY}
             />
-            {thread.isDraft && (
-                <IsDraftTimelineBox
+            {thread.isPendingExternalCreation ? (
+                <IsPendingExternalCreationTimelineBox
                     noun={thread.kind.toLowerCase()}
                     action={
-                        <PublishDraftThreadButton
+                        <PublishThreadToExternalServiceButton
                             {...props}
                             thread={thread}
                             onComplete={onThreadUpdate}
@@ -51,6 +53,20 @@ export const ThreadOverview: React.FunctionComponent<Props> = ({
                         />
                     }
                 />
+            ) : (
+                thread.isDraft && (
+                    <IsDraftTimelineBox
+                        noun={thread.kind.toLowerCase()}
+                        action={
+                            <MarkThreadAsReadyButton
+                                {...props}
+                                thread={thread}
+                                onComplete={onThreadUpdate}
+                                buttonClassName="btn-secondary"
+                            />
+                        }
+                    />
+                )
             )}
             {thread.kind === GQL.ThreadKind.CHANGESET && thread.baseRef && thread.headRef && (
                 <div className="d-flex align-items-start bg-body border mt-5 p-4 position-relative">

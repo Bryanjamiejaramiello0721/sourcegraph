@@ -1,5 +1,6 @@
 import { LoadingSpinner } from '@sourcegraph/react-loading-spinner'
 import BookmarkOutlineIcon from 'mdi-react/BookmarkOutlineIcon'
+import BookmarkIcon from 'mdi-react/BookmarkIcon'
 import H from 'history'
 import AlertCircleIcon from 'mdi-react/AlertCircleIcon'
 import ForumIcon from 'mdi-react/ForumIcon'
@@ -95,21 +96,31 @@ export const CampaignArea: React.FunctionComponent<Props> = ({
         () =>
             campaign !== LOADING && campaign !== null && !isErrorLike(campaign)
                 ? [
-                      campaign.isDraft
-                          ? {
-                                expanded: (
-                                    <>
-                                        <div
-                                            className="badge badge-secondary w-100 d-inline-flex align-items-center py-2 px-3 h6 mb-0 font-weight-bold"
-                                            // eslint-disable-next-line react/forbid-dom-props
-                                            style={{ fontSize: '0.85rem' }}
-                                        >
-                                            <BookmarkOutlineIcon className="icon-inline mr-1 flex-0" /> Draft campaign
-                                        </div>
-                                    </>
-                                ),
-                            }
-                          : undefined,
+                      {
+                          expanded: (
+                              <>
+                                  <div
+                                      className="badge badge-secondary w-100 d-inline-flex align-items-center py-2 px-3 h6 mb-0 font-weight-bold"
+                                      // eslint-disable-next-line react/forbid-dom-props
+                                      style={{ fontSize: '0.85rem' }}
+                                  >
+                                      {campaign.isDraft ? (
+                                          <>
+                                              <BookmarkOutlineIcon className="icon-inline mr-1 flex-0" /> Draft
+                                          </>
+                                      ) : (
+                                          <>
+                                              <BookmarkIcon className="icon-inline mr-1 flex-0" /> Active
+                                          </>
+                                      )}
+                                  </div>
+                              </>
+                          ),
+                          collapsed: {
+                              icon: campaign.isDraft ? BookmarkOutlineIcon : BookmarkIcon,
+                              tooltip: `${campaign.isDraft ? 'Draft' : 'Active'} campaign`,
+                          },
+                      },
                       {
                           expanded: (
                               <CampaignForceRefreshButton

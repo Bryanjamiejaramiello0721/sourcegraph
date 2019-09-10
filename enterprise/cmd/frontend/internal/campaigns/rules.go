@@ -4,14 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
-	"strings"
-	"time"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/neelance/parallel"
-	"github.com/pkg/errors"
 	"github.com/sourcegraph/go-diff/diff"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/backend"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
@@ -22,8 +18,6 @@ import (
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/diagnostics"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/threads"
 	"github.com/sourcegraph/sourcegraph/pkg/api"
-	"github.com/sourcegraph/sourcegraph/pkg/gitserver"
-	"github.com/sourcegraph/sourcegraph/pkg/gitserver/protocol"
 	"github.com/sourcegraph/sourcegraph/pkg/gituri"
 )
 
@@ -137,11 +131,12 @@ func (x *rulesExecutor) planThreads(ctx context.Context) ([]graphqlbackend.Threa
 
 			rawDiagnostics := toRawDiagnostics(diagnosticsByRepo[repoID])
 			changesets = append(changesets, threads.NewGQLThreadPreview(graphqlbackend.CreateThreadInput{
-				Repository:     graphqlbackend.NewRepositoryResolver(repo).ID(),
-				Title:          x.campaign.name,
-				Body:           &x.campaign.body,
-				Draft:          &x.campaign.isDraft,
-				RawDiagnostics: &rawDiagnostics,
+				Repository:                       graphqlbackend.NewRepositoryResolver(repo).ID(),
+				Title:                            x.campaign.name,
+				Body:                             &x.campaign.body,
+				Draft:                            &x.campaign.isDraft,
+				Internal_PendingExternalCreation: x.campaign.isDraft,
+				RawDiagnostics:                   &rawDiagnostics,
 			}, repoComparison))
 		}
 		return changesets, nil
@@ -243,11 +238,12 @@ func (x *rulesExecutor) syncDraftChangeset(ctx context.Context, thread graphqlba
 		return 0, err
 	}
 	dbThread, err := threads.Create(ctx, nil, &threads.DBThread{
-		RepositoryID: thread.Internal_RepositoryID(),
-		Title:        thread.Title(),
-		IsDraft:      thread.IsDraft(),
-		State:        string(graphqlbackend.ThreadStateOpen),
-		PendingPatch: string(patch),
+		RepositoryID:              thread.Internal_RepositoryID(),
+		Title:                     thread.Title(),
+		IsDraft:                   thread.IsDraft(),
+		IsPendingExternalCreation: true,
+		State:                     string(graphqlbackend.ThreadStateOpen),
+		PendingPatch:              string(patch),
 	}, commentobjectdb.DBObjectCommentFields{
 		Author: author,
 		Body:   thread.Body(),
@@ -259,62 +255,15 @@ func (x *rulesExecutor) syncDraftChangeset(ctx context.Context, thread graphqlba
 }
 
 func (x *rulesExecutor) syncNonDraftChangeset(ctx context.Context, thread graphqlbackend.ThreadPreview) (threadID int64, err error) {
-	patch, err := x.computePatch(ctx, thread)
-	if err != nil {
-		return 0, err
-	}
-
 	repo, err := thread.Repository(ctx)
 	if err != nil {
 		return 0, err
 	}
-	defaultBranch, err := repo.DefaultBranch(ctx)
+	patch, err := x.computePatch(ctx, thread)
 	if err != nil {
 		return 0, err
 	}
-	oid, err := defaultBranch.Target().OID(ctx)
-	if err != nil {
-		return 0, err
-	}
-	var IsAlphanumericWithPeriod = regexp.MustCompile(`[^a-zA-Z0-9_.]+`)
-	branchName := "a8n/" + strings.TrimSuffix(IsAlphanumericWithPeriod.ReplaceAllString(x.campaign.name, "-"), "-") // TODO!(sqs): hack
-
-	// TODO!(sqs): For the prototype, prevent changes to any "live" repositories. The sd9 and sd9org
-	// namespaces are sandbox/fake accounts used for the prototype.
-	if !strings.HasPrefix(repo.Name(), "github.com/sd9/") && !strings.HasPrefix(repo.Name(), "github.com/sd9org/") {
-		return 0, errors.New("refusing to modify non-sd9 test repo")
-	}
-
-	// Create a commit and ref.
-	refName := "refs/heads/" + branchName
-	if _, err := gitserver.DefaultClient.CreateCommitFromPatch(ctx, protocol.CreateCommitFromPatchRequest{
-		Repo:       api.RepoName(repo.Name()),
-		BaseCommit: api.CommitID(oid),
-		TargetRef:  refName,
-		Patch:      string(patch),
-		CommitInfo: protocol.PatchCommitInfo{
-			AuthorName:  "Quinn Slack",         // TODO!(sqs): un-hardcode
-			AuthorEmail: "sqs@sourcegraph.com", // TODO!(sqs): un-hardcode
-			Message:     "a8n: " + x.campaign.name,
-			Date:        time.Now(),
-		},
-	}); err != nil {
-		return 0, err
-	}
-
-	// Push the newly created ref. TODO!(sqs) this only makes sense for the demo
-	cmd := gitserver.DefaultClient.Command("git", "push", "-f", "--", "origin", fmt.Sprintf("refs/heads/%s:refs/heads/%s", defaultBranch.AbbrevName(), defaultBranch.AbbrevName()), refName+":"+refName)
-	cmd.Repo = gitserver.Repo{Name: api.RepoName(repo.Name())}
-	if out, err := cmd.CombinedOutput(ctx); err != nil {
-		return 0, fmt.Errorf("%s\n\n%s", err, out)
-	}
-
-	return threads.CreateOrGetExistingGitHubPullRequest(ctx, repo.DBID(), repo.DBExternalRepo(), threads.CreateChangesetData{
-		BaseRefName: defaultBranch.AbbrevName(),
-		HeadRefName: branchName,
-		Title:       thread.Title(),
-		Body:        thread.Body() + fmt.Sprintf(`\n\n<img src="https://about.sourcegraph.com/sourcegraph-mark.png" width=12 height=12> Campaign: [%s](#)`, x.campaign.name),
-	})
+	return threads.CreateOnExternalService(ctx, thread.Title(), thread.Body(), x.campaign.name, repo, patch)
 }
 
 func (x *rulesExecutor) computePatch(ctx context.Context, thread interface {

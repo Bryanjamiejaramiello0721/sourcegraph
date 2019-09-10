@@ -119,6 +119,8 @@ type dbThreadUpdate struct {
 	BaseRef                   *string
 	HeadRef                   *string
 	PendingPatch              *string
+	ExternalServiceID         *int64
+	ExternalID                *string
 }
 
 // Update updates a thread given its ID.
@@ -148,6 +150,12 @@ func (s dbThreads) Update(ctx context.Context, id int64, update dbThreadUpdate) 
 	}
 	if update.PendingPatch != nil {
 		setFields = append(setFields, sqlf.Sprintf("pending_patch=%s", *update.PendingPatch))
+	}
+	if update.ExternalServiceID != nil {
+		setFields = append(setFields, sqlf.Sprintf("imported_from_external_service_id=%s", *update.ExternalServiceID))
+	}
+	if update.ExternalID != nil {
+		setFields = append(setFields, sqlf.Sprintf("external_id=%s", *update.ExternalID))
 	}
 
 	if len(setFields) == 0 {

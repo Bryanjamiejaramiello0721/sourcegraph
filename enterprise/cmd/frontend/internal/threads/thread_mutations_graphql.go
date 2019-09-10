@@ -68,17 +68,50 @@ func (GraphQLResolver) UpdateThread(ctx context.Context, arg *graphqlbackend.Upd
 	return newGQLThread(thread), nil
 }
 
-func (GraphQLResolver) PublishDraftThread(ctx context.Context, arg *graphqlbackend.PublishDraftThreadArgs) (graphqlbackend.Thread, error) {
-	l, err := threadByID(ctx, arg.Thread)
+func (GraphQLResolver) MarkThreadAsReady(ctx context.Context, arg *graphqlbackend.MarkThreadAsReadyArgs) (graphqlbackend.Thread, error) {
+	t, err := threadByID(ctx, arg.Thread)
 	if err != nil {
 		return nil, err
 	}
-	if !l.db.IsDraft {
+	if !t.db.IsDraft {
 		return nil, errors.New("thread is not a draft thread")
 	}
 	tmp := false
-	thread, err := dbThreads{}.Update(ctx, l.db.ID, dbThreadUpdate{
+	thread, err := dbThreads{}.Update(ctx, t.db.ID, dbThreadUpdate{
 		IsDraft: &tmp,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newGQLThread(thread), nil
+}
+
+func (GraphQLResolver) PublishThreadToExternalService(ctx context.Context, arg *graphqlbackend.PublishThreadToExternalServiceArgs) (graphqlbackend.Thread, error) {
+	t, err := threadByID(ctx, arg.Thread)
+	if err != nil {
+		return nil, err
+	}
+	if !t.db.IsPendingExternalCreation {
+		return nil, errors.New("thread is not pending external creation")
+	}
+
+	repo, err := t.Repository(ctx)
+	if err != nil {
+		return nil, err
+	}
+	threadBody, err := t.Body(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	threadID, err := CreateOnExternalService(ctx, t.Title(), threadBody, "TODO-campaign-name" /*TODO!(sqs)*/, repo, []byte(t.db.PendingPatch))
+	if err != nil {
+		return nil, err
+	}
+
+	tmp := false
+	thread, err := dbThreads{}.Update(ctx, t.db.ID, dbThreadUpdate{
+		IsPendingExternalCreation: &tmp,
 	})
 	if err != nil {
 		return nil, err

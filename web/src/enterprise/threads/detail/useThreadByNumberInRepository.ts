@@ -35,6 +35,7 @@ export const useThreadByNumberInRepository = (
                                 number
                                 title
                                 isDraft
+                                isPendingExternalCreation
                                 state
                                 kind
                                 body

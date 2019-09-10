@@ -38,7 +38,7 @@ export const InfoSidebar: React.FunctionComponent<Props> = ({ sections, classNam
                 {sections.map((section, i) => {
                     const Icon =
                         !section.collapsed || React.isValidElement(section.collapsed) ? null! : section.collapsed.icon
-                    return (
+                    const e = (
                         <li key={i} className="list-group-item info-sidebar__item">
                             {expanded ? (
                                 React.isValidElement(section.expanded) ? (
@@ -56,6 +56,7 @@ export const InfoSidebar: React.FunctionComponent<Props> = ({ sections, classNam
                             )}
                         </li>
                     )
+                    return e.props.children ? e : null // omit empty items
                 })}
             </ul>
         )}
