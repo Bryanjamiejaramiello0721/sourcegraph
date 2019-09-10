@@ -263,7 +263,7 @@ func (x *rulesExecutor) syncNonDraftChangeset(ctx context.Context, thread graphq
 	if err != nil {
 		return 0, err
 	}
-	return threads.CreateOnExternalService(ctx, thread.Title(), thread.Body(), x.campaign.name, repo, patch)
+	return threads.CreateOnExternalService(ctx, 0, thread.Title(), thread.Body(), x.campaign.name, repo, patch)
 }
 
 func (x *rulesExecutor) computePatch(ctx context.Context, thread interface {

@@ -14,7 +14,7 @@ import (
 	"github.com/sourcegraph/sourcegraph/pkg/gitserver/protocol"
 )
 
-func CreateOnExternalService(ctx context.Context, threadTitle, threadBody, campaignName string, repo *graphqlbackend.RepositoryResolver, patch []byte) (threadID int64, err error) {
+func CreateOnExternalService(ctx context.Context, existingThreadID int64, threadTitle, threadBody, campaignName string, repo *graphqlbackend.RepositoryResolver, patch []byte) (threadID int64, err error) {
 	defaultBranch, err := repo.DefaultBranch(ctx)
 	if err != nil {
 		return 0, err
@@ -57,9 +57,10 @@ func CreateOnExternalService(ctx context.Context, threadTitle, threadBody, campa
 	}
 
 	return createOrGetExistingGitHubPullRequest(ctx, repo.DBID(), repo.DBExternalRepo(), CreateChangesetData{
-		BaseRefName: defaultBranch.AbbrevName(),
-		HeadRefName: branchName,
-		Title:       threadTitle,
-		Body:        threadBody + fmt.Sprintf(`\n\n<img src="https://about.sourcegraph.com/sourcegraph-mark.png" width=12 height=12> Campaign: [%s](#)`, campaignName),
+		BaseRefName:      defaultBranch.AbbrevName(),
+		HeadRefName:      branchName,
+		Title:            threadTitle,
+		Body:             threadBody + fmt.Sprintf("\n\n"+`<img src="https://about.sourcegraph.com/sourcegraph-mark.png" width=12 height=12> Campaign: [%s](#)`, campaignName),
+		ExistingThreadID: existingThreadID,
 	})
 }

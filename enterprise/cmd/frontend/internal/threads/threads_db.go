@@ -40,9 +40,13 @@ type DBThread struct {
 	HeadRefOID       string
 	PendingPatch     string
 
-	ImportedFromExternalServiceID int64
-	ExternalID                    string
-	ExternalMetadata              json.RawMessage
+	ExternalThreadData
+}
+
+type ExternalThreadData struct {
+	ExternalServiceID int64
+	ExternalID        string
+	ExternalMetadata  json.RawMessage
 }
 
 // errThreadNotFound occurs when a database operation expects a specific thread to exist but it does
@@ -51,7 +55,7 @@ var errThreadNotFound = errors.New("thread not found")
 
 type dbThreads struct{}
 
-const SelectColumns = "id, repository_id, title, is_draft, is_pending_external_creation, state, assignee_user_id, assignee_external_actor_username, assignee_external_actor_url, primary_comment_id, created_at, updated_at, base_ref, base_ref_oid, head_repository_id, head_ref, head_ref_oid, pending_patch, imported_from_external_service_id, external_id, external_metadata"
+const SelectColumns = "id, repository_id, title, is_draft, is_pending_external_creation, state, assignee_user_id, assignee_external_actor_username, assignee_external_actor_url, primary_comment_id, created_at, updated_at, base_ref, base_ref_oid, head_repository_id, head_ref, head_ref_oid, pending_patch, external_service_id, external_id, external_metadata"
 
 // Create creates a thread. The thread argument's (Thread).ID field is ignored. The new thread is
 // returned.
@@ -91,7 +95,7 @@ func (dbThreads) Create(ctx context.Context, tx *sql.Tx, thread *DBThread, comme
 			nnz.String(thread.HeadRef),
 			nnz.String(thread.HeadRefOID),
 			nnz.String(thread.PendingPatch),
-			nnz.Int64(thread.ImportedFromExternalServiceID),
+			nnz.Int64(thread.ExternalServiceID),
 			nnz.String(thread.ExternalID),
 			nnz.JSON(thread.ExternalMetadata),
 		}
@@ -119,8 +123,7 @@ type dbThreadUpdate struct {
 	BaseRef                   *string
 	HeadRef                   *string
 	PendingPatch              *string
-	ExternalServiceID         *int64
-	ExternalID                *string
+	ExternalThreadData        *ExternalThreadData
 }
 
 // Update updates a thread given its ID.
@@ -151,11 +154,12 @@ func (s dbThreads) Update(ctx context.Context, id int64, update dbThreadUpdate) 
 	if update.PendingPatch != nil {
 		setFields = append(setFields, sqlf.Sprintf("pending_patch=%s", *update.PendingPatch))
 	}
-	if update.ExternalServiceID != nil {
-		setFields = append(setFields, sqlf.Sprintf("imported_from_external_service_id=%s", *update.ExternalServiceID))
-	}
-	if update.ExternalID != nil {
-		setFields = append(setFields, sqlf.Sprintf("external_id=%s", *update.ExternalID))
+	if update.ExternalThreadData != nil {
+		setFields = append(setFields,
+			sqlf.Sprintf("external_service_id=%s", update.ExternalThreadData.ExternalServiceID),
+			sqlf.Sprintf("external_id=%s", update.ExternalThreadData.ExternalID),
+			sqlf.Sprintf("external_metadata=%s", update.ExternalThreadData.ExternalMetadata),
+		)
 	}
 
 	if len(setFields) == 0 {
@@ -195,10 +199,10 @@ func (s dbThreads) GetByID(ctx context.Context, id int64) (*DBThread, error) {
 // GetByExternal retrieves the thread (if any) given its external service ID information.
 //
 // 🚨 SECURITY: The caller must ensure that the actor is permitted to view this thread.
-func (s dbThreads) GetByExternal(ctx context.Context, importedFromExternalServiceID int64, externalID string) (*DBThread, error) {
+func (s dbThreads) GetByExternal(ctx context.Context, externalServiceID int64, externalID string) (*DBThread, error) {
 	results, err := s.list(ctx, []*sqlf.Query{
-		sqlf.Sprintf("imported_from_external_service_id=%d AND external_id=%s",
-			importedFromExternalServiceID,
+		sqlf.Sprintf("external_service_id=%d AND external_id=%s",
+			externalServiceID,
 			externalID,
 		),
 	}, nil)
@@ -213,12 +217,12 @@ func (s dbThreads) GetByExternal(ctx context.Context, importedFromExternalServic
 
 // dbThreadsListOptions contains options for listing threads.
 type dbThreadsListOptions struct {
-	Query                         string       // only list threads matching this query (case-insensitively)
-	RepositoryIDs                 []api.RepoID // only list threads in these repositories
-	ThreadIDs                     []int64
-	LabelNames                    []string
-	States                        []string
-	ImportedFromExternalServiceID int64
+	Query             string       // only list threads matching this query (case-insensitively)
+	RepositoryIDs     []api.RepoID // only list threads in these repositories
+	ThreadIDs         []int64
+	LabelNames        []string
+	States            []string
+	ExternalServiceID int64
 	*db.LimitOffset
 }
 
@@ -255,8 +259,8 @@ func (o dbThreadsListOptions) sqlConditions() []*sqlf.Query {
 			conds = append(conds, sqlf.Sprintf("FALSE"))
 		}
 	}
-	if o.ImportedFromExternalServiceID != 0 {
-		conds = append(conds, sqlf.Sprintf("imported_from_external_service_id=%d", o.ImportedFromExternalServiceID))
+	if o.ExternalServiceID != 0 {
+		conds = append(conds, sqlf.Sprintf("external_service_id=%d", o.ExternalServiceID))
 	}
 	return conds
 }
@@ -326,7 +330,7 @@ func (dbThreads) scanRow(row interface {
 		(*nnz.String)(&t.HeadRef),
 		(*nnz.String)(&t.HeadRefOID),
 		(*nnz.String)(&t.PendingPatch),
-		(*nnz.Int64)(&t.ImportedFromExternalServiceID),
+		(*nnz.Int64)(&t.ExternalServiceID),
 		(*nnz.String)(&t.ExternalID),
 		nnz.ToJSON(&t.ExternalMetadata),
 	); err != nil {

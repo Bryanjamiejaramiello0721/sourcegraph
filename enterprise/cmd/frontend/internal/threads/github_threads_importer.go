@@ -49,7 +49,7 @@ func ImportGitHubRepositoryThreads(ctx context.Context, repoID api.RepoID, extRe
 func newExternalThread(result *githubIssueOrPullRequest, repoID api.RepoID, externalServiceID int64) *externalThread {
 	thread, threadComment := githubIssueOrPullRequestToThread(result)
 	thread.RepositoryID = repoID
-	thread.ImportedFromExternalServiceID = externalServiceID
+	thread.ExternalServiceID = externalServiceID
 
 	replyComments := make([]*comments.ExternalComment, len(result.Comments.Nodes))
 	for i, c := range result.Comments.Nodes {
@@ -73,7 +73,9 @@ func githubIssueOrPullRequestToThread(v *githubIssueOrPullRequest) (*DBThread, c
 		// TODO!(sqs): fill in headrepository
 		HeadRef:    v.HeadRefName,
 		HeadRefOID: v.HeadRefOid,
-		ExternalID: string(v.ID),
+		ExternalThreadData: ExternalThreadData{
+			ExternalID: string(v.ID),
+		},
 	}
 	if len(v.Assignees.Nodes) >= 1 {
 		// TODO!(sqs): support multiple assignees

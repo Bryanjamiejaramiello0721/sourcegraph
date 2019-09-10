@@ -104,19 +104,10 @@ func (GraphQLResolver) PublishThreadToExternalService(ctx context.Context, arg *
 		return nil, err
 	}
 
-	threadID, err := CreateOnExternalService(ctx, t.Title(), threadBody, "TODO-campaign-name" /*TODO!(sqs)*/, repo, []byte(t.db.PendingPatch))
-	if err != nil {
+	if _, err := CreateOnExternalService(ctx, t.db.ID, t.Title(), threadBody, "TODO-campaign-name" /*TODO!(sqs)*/, repo, []byte(t.db.PendingPatch)); err != nil {
 		return nil, err
 	}
-
-	tmp := false
-	thread, err := dbThreads{}.Update(ctx, t.db.ID, dbThreadUpdate{
-		IsPendingExternalCreation: &tmp,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return newGQLThread(thread), nil
+	return threadByID(ctx, arg.Thread)
 }
 
 func (GraphQLResolver) DeleteThread(ctx context.Context, arg *graphqlbackend.DeleteThreadArgs) (*graphqlbackend.EmptyResponse, error) {

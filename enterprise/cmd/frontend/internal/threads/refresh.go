@@ -10,14 +10,14 @@ func Refresh(ctx context.Context, dbID int64) error {
 	if err != nil {
 		return err
 	}
-	if dbThread.ImportedFromExternalServiceID == 0 {
+	if dbThread.ExternalServiceID == 0 {
 		return nil // no associated external services
 	}
 
 	// Update this thread's metadata.
-	if err := UpdateGitHubThreadMetadata(ctx, dbThread.ID, dbThread.ImportedFromExternalServiceID, dbThread.ExternalID, dbThread.RepositoryID); err != nil {
+	if err := UpdateGitHubThreadMetadata(ctx, dbThread.ID, dbThread.ExternalServiceID, dbThread.ExternalID, dbThread.RepositoryID); err != nil {
 		return err
 	}
 
-	return ImportGitHubThreadEvents(ctx, dbID, dbThread.ImportedFromExternalServiceID, dbThread.ExternalID, dbThread.RepositoryID)
+	return ImportGitHubThreadEvents(ctx, dbID, dbThread.ExternalServiceID, dbThread.ExternalID, dbThread.RepositoryID)
 }

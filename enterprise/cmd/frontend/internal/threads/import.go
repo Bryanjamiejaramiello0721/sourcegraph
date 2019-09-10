@@ -46,8 +46,8 @@ func ImportExternalThreads(ctx context.Context, repo api.RepoID, externalService
 		panic("externalServiceID must be nonzero")
 	}
 	opt := dbThreadsListOptions{
-		RepositoryIDs:                 []api.RepoID{repo},
-		ImportedFromExternalServiceID: externalServiceID,
+		RepositoryIDs:     []api.RepoID{repo},
+		ExternalServiceID: externalServiceID,
 	}
 
 	// Delete all existing threads for the repository from the given external service.
@@ -60,7 +60,7 @@ func ImportExternalThreads(ctx context.Context, repo api.RepoID, externalService
 
 	// Insert the new threads.
 	for _, x := range toImport {
-		if x.thread.ImportedFromExternalServiceID != externalServiceID {
+		if x.thread.ExternalServiceID != externalServiceID {
 			panic("external service ID mismatch")
 		}
 		if x.thread.ExternalID == "" {

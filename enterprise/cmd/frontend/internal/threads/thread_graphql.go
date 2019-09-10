@@ -137,7 +137,7 @@ func (v *gqlThread) Kind(ctx context.Context) (graphqlbackend.ThreadKind, error)
 		return graphqlbackend.ThreadKindChangeset, nil
 	}
 
-	if v.db.ImportedFromExternalServiceID != 0 {
+	if v.db.ExternalServiceID != 0 {
 		return graphqlbackend.ThreadKindIssue, nil
 	}
 

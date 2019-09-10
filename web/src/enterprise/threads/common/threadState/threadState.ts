@@ -7,8 +7,8 @@ import { GitPullRequestIcon } from '../../../../util/octicons'
  * The subset of fields that is needed for displaying the thread's state icons.
  */
 export type ThreadStateFields =
-    | Pick<GQL.IThread, '__typename' | 'state' | 'kind' | 'isDraft'>
-    | Pick<GQL.IThreadPreview, '__typename' | 'kind' | 'isDraft'>
+    | Pick<GQL.IThread, '__typename' | 'state' | 'kind' | 'isDraft' | 'isPendingExternalCreation'>
+    | Pick<GQL.IThreadPreview, '__typename' | 'kind' | 'isDraft' | 'isPendingExternalCreation'>
 
 type ThreadStateColor = 'success' | 'danger' | 'info' | 'secondary' | 'purple'
 
@@ -25,18 +25,19 @@ const ICON: Record<GQL.ThreadKind, React.ComponentType<{ className?: string }>> 
 }
 
 const text = (thread: ThreadStateFields): string => {
-    switch (thread.__typename) {
-        case 'Thread':
-            switch (thread.state) {
-                case GQL.ThreadState.OPEN:
-                    return 'Open'
-                case GQL.ThreadState.MERGED:
-                    return 'Merged'
-                case GQL.ThreadState.CLOSED:
-                    return 'Closed'
-            }
-        case 'ThreadPreview':
+    if (thread.isPendingExternalCreation || thread.__typename === 'ThreadPreview') {
+        return 'Preview'
+    }
+    if (thread.isDraft) {
+        return 'Draft'
+    }
+    switch (thread.state) {
+        case GQL.ThreadState.OPEN:
             return 'Open'
+        case GQL.ThreadState.MERGED:
+            return 'Merged'
+        case GQL.ThreadState.CLOSED:
+            return 'Closed'
     }
 }
 
@@ -55,6 +56,6 @@ export const threadStateInfo = (
 } => ({
     color: thread.isDraft ? 'secondary' : COLOR[thread.__typename === 'Thread' ? thread.state : GQL.ThreadState.OPEN],
     icon: ICON[thread.kind],
-    text: `${text(thread)}${thread.isDraft ? ' (draft)' : ''}`,
+    text: text(thread),
     tooltip: tooltip(thread),
 })
