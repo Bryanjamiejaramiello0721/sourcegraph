@@ -46,6 +46,7 @@ function queryThreadFileDiffs(thread: Pick<GQL.IThread, 'id'>): Observable<GQL.I
                             range {
                                 ...GitRevisionRangeFields
                             }
+                            isPreview
                             fileDiffs {
                                 nodes {
                                     ...FileDiffFields

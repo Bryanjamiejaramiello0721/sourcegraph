@@ -9,9 +9,7 @@ import { gitCommitFragment } from '../../../../repo/commits/RepositoryCommitsPag
 
 const LOADING: 'loading' = 'loading'
 
-export function useThreadCommits(
-    thread: Pick<GQL.IThread, 'id'>
-): typeof LOADING | GQL.IGitCommit[] | ErrorLike {
+export function useThreadCommits(thread: Pick<GQL.IThread, 'id'>): typeof LOADING | GQL.IGitCommit[] | ErrorLike {
     const [data, setData] = useState<typeof LOADING | GQL.IGitCommit[] | ErrorLike>(LOADING)
     useEffect(() => {
         const subscription = queryThreadCommits(thread).subscribe(setData, err => setData(asError(err)))
@@ -28,6 +26,7 @@ function queryThreadCommits(thread: Pick<GQL.IThread, 'id'>): Observable<GQL.IGi
                     __typename
                     ... on Thread {
                         repositoryComparison {
+                            isPreview
                             commits {
                                 nodes {
                                     ...GitCommitFields

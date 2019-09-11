@@ -46,6 +46,7 @@ function queryCampaignFileDiffs(campaign: Pick<GQL.ICampaign, 'id'>): Observable
                             range {
                                 ...GitRevisionRangeFields
                             }
+                            isPreview
                             fileDiffs {
                                 nodes {
                                     ...FileDiffFields

@@ -187,7 +187,9 @@ const queryCampaignPreview = ({
                     tap(data => {
                         // TODO!(sqs) hack, compensate for the RepositoryComparison head not existing
                         const fixup = (c: GQL.IRepositoryComparison): void => {
-                            c.range.headRevSpec.object = { oid: '' } as any
+                            if (c.range) {
+                                c.range.headRevSpec.object = { oid: '' } as any
+                            }
                             for (const d of c.fileDiffs.nodes) {
                                 d.mostRelevantFile = { path: d.newPath, url: '' } as any
                             }

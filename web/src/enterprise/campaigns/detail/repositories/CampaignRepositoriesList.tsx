@@ -44,11 +44,17 @@ export const CampaignRepositoriesList: React.FunctionComponent<Props> = ({ campa
                                 <Link to={c.baseRepository.url} className="mr-3">
                                     <RepositoryIcon className="icon-inline" /> {displayRepoName(c.baseRepository.name)}
                                 </Link>
-                                <span className="text-muted d-inline-flex align-items-center">
-                                    {c.range.baseRevSpec.expr.replace(/^refs\/heads\//, '')}{' '}
-                                    <DotsHorizontalIcon className="icon-inline small" />{' '}
-                                    {c.range.headRevSpec.expr.replace(/^refs\/heads\//, '')}
-                                </span>
+                                {c.isPreview ? (
+                                    <span className="badge badge-secondary">Preview</span>
+                                ) : (
+                                    c.range && (
+                                        <span className="text-muted d-inline-flex align-items-center">
+                                            {c.range.baseRevSpec.expr.replace(/^refs\/heads\//, '')}{' '}
+                                            <DotsHorizontalIcon className="icon-inline small" />{' '}
+                                            {c.range.headRevSpec.expr.replace(/^refs\/heads\//, '')}
+                                        </span>
+                                    )
+                                )}
                                 <div className="flex-1"></div>
                                 {!showCommits && (
                                     <small className="mr-3">

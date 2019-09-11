@@ -1775,8 +1775,14 @@ type RepositoryComparison {
     # RepositoryComparison.baseRepository.
     headRepository: Repository!
 
-    # The range that this comparison represents.
-    range: GitRevisionRange!
+    # The range that this comparison represents, if it is expressible as a range.
+    range: GitRevisionRange
+
+    # A preview comparison has RepositoryComparison.range == null and shows what the commits and
+    # diff would be for a given change (but does not actually represent a comparison between two
+    # existing commits).
+    isPreview: Boolean!
+
     # The commits in the comparison range, excluding the base and including the head.
     commits(
         # Return the first n commits from the list.

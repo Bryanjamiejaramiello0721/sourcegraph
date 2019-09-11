@@ -43,6 +43,7 @@ function queryCampaignRepositories(campaign: Pick<GQL.ICampaign, 'id'>): Observa
                             range {
                                 ...GitRevisionRangeFields
                             }
+                            isPreview
                             commits {
                                 nodes {
                                     ...GitCommitFields

@@ -25,7 +25,8 @@ const devNullSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 type RepositoryComparison interface {
 	BaseRepository() *RepositoryResolver
 	HeadRepository() *RepositoryResolver
-	Range(context.Context) (GitRevisionRange, error)
+	Range() GitRevisionRange
+	IsPreview() bool
 	Commits(*graphqlutil.ConnectionArgs) GitCommitConnection
 	FileDiffs(*graphqlutil.ConnectionArgs) FileDiffConnection
 }
@@ -132,18 +133,16 @@ func (r *RepositoryComparisonResolver) BaseRepository() *RepositoryResolver { re
 
 func (r *RepositoryComparisonResolver) HeadRepository() *RepositoryResolver { return r.repo }
 
-func (r *RepositoryComparisonResolver) Range(context.Context) (GitRevisionRange, error) {
-	return NewGitRevisionRange(r.baseRevspec, r.repo, r.headRevspec, r.repo), nil
-}
-
-func NewGitRevisionRange(baseRevspec resolvedRevspec, baseRepo *RepositoryResolver, headRevspec resolvedRevspec, headRepo *RepositoryResolver) GitRevisionRange {
+func (r *RepositoryComparisonResolver) Range() GitRevisionRange {
 	return &gitRevisionRange{
-		expr:      baseRevspec.expr + "..." + headRevspec.expr,
-		base:      &gitRevSpec{expr: &gitRevSpecExpr{expr: baseRevspec.expr, oid: GitObjectID(baseRevspec.commitID), nullObjectIfEmptyOID: true, repo: baseRepo}},
-		head:      &gitRevSpec{expr: &gitRevSpecExpr{expr: headRevspec.expr, oid: GitObjectID(headRevspec.commitID), nullObjectIfEmptyOID: true, repo: headRepo}},
+		expr:      r.baseRevspec.expr + "..." + r.headRevspec.expr,
+		base:      &gitRevSpec{expr: &gitRevSpecExpr{expr: r.baseRevspec.expr, oid: GitObjectID(r.baseRevspec.commitID), nullObjectIfEmptyOID: true, repo: r.repo}},
+		head:      &gitRevSpec{expr: &gitRevSpecExpr{expr: r.headRevspec.expr, oid: GitObjectID(r.headRevspec.commitID), nullObjectIfEmptyOID: true, repo: r.repo}},
 		mergeBase: nil, // not currently used
 	}
 }
+
+func (RepositoryComparisonResolver) IsPreview() bool { return false }
 
 func (r *RepositoryComparisonResolver) Commits(args *graphqlutil.ConnectionArgs) GitCommitConnection {
 	return &gitCommitConnectionResolver{

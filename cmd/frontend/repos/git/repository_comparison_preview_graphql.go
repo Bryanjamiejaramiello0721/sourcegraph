@@ -1,8 +1,6 @@
 package git
 
 import (
-	"context"
-
 	"github.com/sourcegraph/go-diff/diff"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend/graphqlutil"
@@ -13,9 +11,6 @@ import (
 type GQLRepositoryComparisonPreview struct {
 	BaseRepository_ *graphqlbackend.RepositoryResolver
 	HeadRepository_ *graphqlbackend.RepositoryResolver
-
-	// TODO!(sqs): hack, dummy to make this type implement RepositoryComparison including fields that are TODO
-	*graphqlbackend.RepositoryComparisonResolver
 
 	Commits_   []*graphqlbackend.GitCommitResolver
 	FileDiffs_ []*diff.FileDiff
@@ -29,16 +24,11 @@ func (v *GQLRepositoryComparisonPreview) HeadRepository() *graphqlbackend.Reposi
 	return v.HeadRepository_
 }
 
-func (v *GQLRepositoryComparisonPreview) Range(ctx context.Context) (graphqlbackend.GitRevisionRange, error) {
-	defaultBranch, err := v.BaseRepository().DefaultBranch(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return graphqlbackend.NewGitRevisionRange(
-		graphqlbackend.NewResolvedRevspec(defaultBranch.AbbrevName(), ""), v.BaseRepository_,
-		graphqlbackend.NewResolvedRevspec("preview", ""), v.HeadRepository_,
-	), nil
+func (v *GQLRepositoryComparisonPreview) Range() graphqlbackend.GitRevisionRange {
+	return nil
 }
+
+func (GQLRepositoryComparisonPreview) IsPreview() bool { return true }
 
 func (v *GQLRepositoryComparisonPreview) Commits(*graphqlutil.ConnectionArgs) graphqlbackend.GitCommitConnection {
 	return GitCommitConnection(v.Commits_)
