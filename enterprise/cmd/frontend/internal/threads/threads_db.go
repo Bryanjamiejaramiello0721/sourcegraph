@@ -121,8 +121,11 @@ type dbThreadUpdate struct {
 	IsPendingExternalCreation *bool
 	State                     *string
 	BaseRef                   *string
+	BaseRefOID                *string
 	HeadRef                   *string
+	HeadRefOID                *string
 	PendingPatch              *string
+	ClearPendingPatch         bool
 	ExternalThreadData        *ExternalThreadData
 }
 
@@ -148,10 +151,18 @@ func (s dbThreads) Update(ctx context.Context, id int64, update dbThreadUpdate) 
 	if update.BaseRef != nil {
 		setFields = append(setFields, sqlf.Sprintf("base_ref=%s", *update.BaseRef))
 	}
+	if update.BaseRefOID != nil {
+		setFields = append(setFields, sqlf.Sprintf("base_ref_oid=%s", *update.BaseRefOID))
+	}
 	if update.HeadRef != nil {
 		setFields = append(setFields, sqlf.Sprintf("head_ref=%s", *update.HeadRef))
 	}
-	if update.PendingPatch != nil {
+	if update.HeadRefOID != nil {
+		setFields = append(setFields, sqlf.Sprintf("head_ref_oid=%s", *update.HeadRefOID))
+	}
+	if update.ClearPendingPatch {
+		setFields = append(setFields, sqlf.Sprintf("pending_patch=null"))
+	} else if update.PendingPatch != nil {
 		setFields = append(setFields, sqlf.Sprintf("pending_patch=%s", *update.PendingPatch))
 	}
 	if update.ExternalThreadData != nil {

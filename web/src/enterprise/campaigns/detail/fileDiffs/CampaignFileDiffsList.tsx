@@ -5,11 +5,9 @@ import { ExtensionsControllerProps } from '../../../../../../shared/src/extensio
 import * as GQL from '../../../../../../shared/src/graphql/schema'
 import { PlatformContextProps } from '../../../../../../shared/src/platform/context'
 import { isErrorLike } from '../../../../../../shared/src/util/errors'
-import { RepositoryCompareDiffPage } from '../../../../repo/compare/RepositoryCompareDiffPage'
 import { ThemeProps } from '../../../../theme'
 import { useCampaignFileDiffs } from './useCampaignFileDiffs'
 import { FileDiffNode } from '../../../../repo/compare/FileDiffNode'
-import { parseRepoURI } from '../../../../../../shared/src/util/url'
 
 interface Props extends ExtensionsControllerProps, PlatformContextProps, ThemeProps {
     campaign: Pick<GQL.ICampaign, 'id'>

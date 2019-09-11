@@ -56,7 +56,14 @@ func createOrGetExistingGitHubPullRequest(ctx context.Context, repoID api.RepoID
 	// Thread does exist on Sourcegraph. Link it to the newly created external thread.
 	tmp := false
 	if _, err := (dbThreads{}).Update(ctx, data.ExistingThreadID, dbThreadUpdate{
+		// TODO!(sqs): dedupe with githubIssueOrPullRequestToThread
+		BaseRef:    &pull.BaseRefName,
+		BaseRefOID: &pull.BaseRefOid,
+		HeadRef:    &pull.HeadRefName,
+		HeadRefOID: &pull.HeadRefOid,
+
 		IsPendingExternalCreation: &tmp,
+		ClearPendingPatch:         true,
 		ExternalThreadData:        &externalThread.thread.ExternalThreadData,
 	}); err != nil {
 		return 0, err

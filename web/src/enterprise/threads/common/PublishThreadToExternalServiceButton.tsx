@@ -27,6 +27,7 @@ const publishThreadToExternalService = (args: GQL.IPublishThreadToExternalServic
 interface Props extends ExtensionsControllerNotificationProps {
     thread: Pick<GQL.IThread, 'id' | 'kind'>
     onComplete?: () => void
+    compact?: boolean
     className?: string
     buttonClassName?: string
 }
@@ -37,6 +38,7 @@ interface Props extends ExtensionsControllerNotificationProps {
 export const PublishThreadToExternalServiceButton: React.FunctionComponent<Props> = ({
     thread,
     onComplete,
+    compact = false,
     className = '',
     buttonClassName = 'btn-link text-decoration-none',
     extensionsController,
@@ -64,7 +66,7 @@ export const PublishThreadToExternalServiceButton: React.FunctionComponent<Props
     )
     return (
         <button type="button" disabled={isLoading} className={`btn ${buttonClassName} ${className}`} onClick={onClick}>
-            {isLoading && <LoadingSpinner className="icon-inline" />} Publish {thread.kind.toLowerCase()}
+            {isLoading && <LoadingSpinner className="icon-inline" />} Publish {!compact && thread.kind.toLowerCase()}
         </button>
     )
 }

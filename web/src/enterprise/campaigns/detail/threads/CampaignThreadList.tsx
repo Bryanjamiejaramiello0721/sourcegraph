@@ -14,6 +14,7 @@ import { ThreadList, ThreadListHeaderCommonFilters } from '../../../threads/list
 import { ThreadListButtonDropdownFilter } from '../../../threads/list/header/ThreadListFilterButtonDropdown'
 import { RemoveThreadFromCampaignButton } from './RemoveThreadFromCampaignButton'
 import { ThreadListHeaderStates } from '../../../threads/list/header/ThreadListHeaderStates'
+import { PublishThreadToExternalServiceButton } from '../../../threads/common/PublishThreadToExternalServiceButton'
 
 const LOADING = 'loading' as const
 
@@ -85,6 +86,15 @@ export const CampaignThreadList: React.FunctionComponent<Props> = ({
                         </>
                     ) : (
                         <span className="badge badge-warning">Build in progress</span>
+                    )}
+                    {thread.isPendingExternalCreation && (
+                        <PublishThreadToExternalServiceButton
+                            {...props}
+                            thread={thread}
+                            onComplete={onThreadsUpdate}
+                            compact={true}
+                            extensionsController={extensionsController}
+                        />
                     )}
                     <RemoveThreadFromCampaignButton
                         {...props}
