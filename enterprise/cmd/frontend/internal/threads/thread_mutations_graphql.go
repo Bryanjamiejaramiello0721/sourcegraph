@@ -91,23 +91,31 @@ func (GraphQLResolver) PublishThreadToExternalService(ctx context.Context, arg *
 	if err != nil {
 		return nil, err
 	}
-	if !t.db.IsPendingExternalCreation {
-		return nil, errors.New("thread is not pending external creation")
-	}
-
-	repo, err := t.Repository(ctx)
-	if err != nil {
-		return nil, err
-	}
-	threadBody, err := t.Body(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := CreateOnExternalService(ctx, t.db.ID, t.Title(), threadBody, "TODO-campaign-name" /*TODO!(sqs)*/, repo, []byte(t.db.PendingPatch)); err != nil {
+	if err := PublishThreadToExternalService(ctx, t); err != nil {
 		return nil, err
 	}
 	return threadByID(ctx, arg.Thread)
+}
+
+func PublishThreadToExternalService(ctx context.Context, thread_ graphqlbackend.Thread) error {
+	thread := thread_.(*gqlThread).db
+	if !thread.IsPendingExternalCreation {
+		return errors.New("thread is not pending external creation")
+	}
+
+	repo, err := thread_.Repository(ctx)
+	if err != nil {
+		return err
+	}
+	threadBody, err := thread_.Body(ctx)
+	if err != nil {
+		return err
+	}
+
+	// TODO!(sqs): un-hardcode
+	campaignName := "Deprecate glob (npm)"
+	_, err = CreateOnExternalService(ctx, thread.ID, thread_.Title(), threadBody, campaignName, repo, []byte(thread.PendingPatch))
+	return err
 }
 
 func (GraphQLResolver) DeleteThread(ctx context.Context, arg *graphqlbackend.DeleteThreadArgs) (*graphqlbackend.EmptyResponse, error) {

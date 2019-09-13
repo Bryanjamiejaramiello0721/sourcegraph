@@ -26,6 +26,8 @@ export interface CampaignFormProps extends CampaignFormControl {
     className?: string
 }
 
+const SHOW_JSON = false
+
 /**
  * A form to create or edit a campaign.
  */
@@ -63,15 +65,23 @@ export const CampaignForm: React.FunctionComponent<
                     />
                 ),
             })}
-            <div className="form-group mt-4">
-                <button type="button" className="btn btn-sm btn-link ml-2" onClick={toggleIsCreateCampaignInputVisible}>
-                    {isCreateCampaignInputVisible ? 'Hide' : 'Show'} JSON
-                </button>
-            </div>
-            {isCreateCampaignInputVisible && (
-                <pre className="small mt-4 border p-2 overflow-auto">
-                    <code>{JSON.stringify(value, null, 2)}</code>
-                </pre>
+            {SHOW_JSON && (
+                <>
+                    <div className="form-group mt-4">
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-link ml-2"
+                            onClick={toggleIsCreateCampaignInputVisible}
+                        >
+                            {isCreateCampaignInputVisible ? 'Hide' : 'Show'} JSON
+                        </button>
+                    </div>
+                    {isCreateCampaignInputVisible && (
+                        <pre className="small mt-4 border p-2 overflow-auto">
+                            <code>{JSON.stringify(value, null, 2)}</code>
+                        </pre>
+                    )}
+                </>
             )}
         </Form>
     )

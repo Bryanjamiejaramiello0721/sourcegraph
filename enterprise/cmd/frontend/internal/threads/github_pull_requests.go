@@ -42,33 +42,36 @@ func createOrGetExistingGitHubPullRequest(ctx context.Context, repoID api.RepoID
 	}
 
 	externalThread := newExternalThread(pull, repoID, externalServiceID)
-	if data.ExistingThreadID == 0 {
-		// Thread does not yet exist on Sourcegraph.
-		thread, err := dbThreads{}.GetByExternal(ctx, externalServiceID, externalThread.thread.ExternalID)
-		if err == nil {
-			threadID = thread.ID
-		} else if err == errThreadNotFound {
+
+	// If thread exists externally, reuse that.
+
+	// Thread does not yet exist on Sourcegraph.
+	thread, err := dbThreads{}.GetByExternal(ctx, externalServiceID, externalThread.thread.ExternalID)
+	if err == nil {
+		threadID = thread.ID
+	} else if err == errThreadNotFound {
+		if data.ExistingThreadID == 0 {
 			threadID, err = dbCreateExternalThread(ctx, nil, externalThread)
+		} else {
+			// Thread does exist on Sourcegraph. Link it to the newly created external thread.
+			tmp := false
+			if _, err := (dbThreads{}).Update(ctx, data.ExistingThreadID, dbThreadUpdate{
+				// TODO!(sqs): dedupe with githubIssueOrPullRequestToThread
+				BaseRef:    &pull.BaseRefName,
+				BaseRefOID: &pull.BaseRefOid,
+				HeadRef:    &pull.HeadRefName,
+				HeadRefOID: &pull.HeadRefOid,
+
+				IsPendingExternalCreation: &tmp,
+				ClearPendingPatch:         true,
+				ExternalThreadData:        &externalThread.thread.ExternalThreadData,
+			}); err != nil {
+				return 0, err
+			}
+			threadID = data.ExistingThreadID
 		}
-		return threadID, err
 	}
-
-	// Thread does exist on Sourcegraph. Link it to the newly created external thread.
-	tmp := false
-	if _, err := (dbThreads{}).Update(ctx, data.ExistingThreadID, dbThreadUpdate{
-		// TODO!(sqs): dedupe with githubIssueOrPullRequestToThread
-		BaseRef:    &pull.BaseRefName,
-		BaseRefOID: &pull.BaseRefOid,
-		HeadRef:    &pull.HeadRefName,
-		HeadRefOID: &pull.HeadRefOid,
-
-		IsPendingExternalCreation: &tmp,
-		ClearPendingPatch:         true,
-		ExternalThreadData:        &externalThread.thread.ExternalThreadData,
-	}); err != nil {
-		return 0, err
-	}
-	return data.ExistingThreadID, nil
+	return threadID, err
 }
 
 func doCreateOrGetExistingGitHubPullRequest(ctx context.Context, client *github.Client, githubRepositoryID graphql.ID, data CreateChangesetData) (*githubIssueOrPullRequest, error) {

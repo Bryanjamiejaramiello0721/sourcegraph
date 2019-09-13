@@ -71,14 +71,10 @@ export const ThreadPreview: React.FunctionComponent<Props> = ({ thread, titleRig
                         base={{
                             repoName: c.baseRepository.name,
                             repoID: c.baseRepository.id,
-                            rev: c.range.baseRevSpec.expr,
-                            commitID: c.range.baseRevSpec.object!.oid, // TODO!(sqs)
                         }}
                         head={{
                             repoName: c.headRepository.name,
                             repoID: c.headRepository.id,
-                            rev: c.range.headRevSpec.expr,
-                            commitID: c.range.headRevSpec.object!.oid, // TODO!(sqs)
                         }}
                         lineNumbers={false}
                         className="mb-0"

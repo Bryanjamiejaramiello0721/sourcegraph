@@ -165,6 +165,19 @@ func (GraphQLResolver) PublishDraftCampaign(ctx context.Context, arg *graphqlbac
 	if !l.db.IsDraft {
 		return nil, errors.New("campaign is not a draft campaign")
 	}
+
+	ts, err := l.getThreads(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, thread := range ts {
+		if thread.Common().IsPendingExternalCreation() {
+			if err := threads.PublishThreadToExternalService(ctx, thread.Thread); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	tmp := false
 	campaign, err := dbCampaigns{}.Update(ctx, l.db.ID, dbCampaignUpdate{
 		IsDraft: &tmp,
