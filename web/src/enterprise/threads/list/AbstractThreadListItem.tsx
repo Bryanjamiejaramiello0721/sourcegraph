@@ -13,7 +13,7 @@ interface Props {
     title: React.ReactFragment
     afterTitle?: React.ReactFragment
     detail?: React.ReactFragment[]
-    right?: React.ReactFragment[]
+    right?: React.ReactFragment | React.ReactFragment[]
 
     className?: string
 }
@@ -62,18 +62,20 @@ export const AbstractThreadListItem: React.FunctionComponent<Props> = ({
                     </ul>
                 )}
             </div>
-            {right && right.length > 0 && (
-                <div>
-                    <ul className="list-inline d-flex align-items-center">
-                        {right.map((e, i) => (
-                            // eslint-disable-next-line react/no-array-index-key
-                            <li key={i} className="list-inline-item">
-                                {e}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+            {right && Array.isArray(right)
+                ? right.length > 0 && (
+                      <div>
+                          <ul className="list-inline d-flex align-items-center">
+                              {right.map((e, i) => (
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  <li key={i} className="list-inline-item">
+                                      {e}
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                  )
+                : right}
         </div>
     </li>
 )

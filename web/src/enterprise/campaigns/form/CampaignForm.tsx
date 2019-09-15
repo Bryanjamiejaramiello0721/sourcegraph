@@ -26,7 +26,7 @@ export interface CampaignFormProps extends CampaignFormControl {
     className?: string
 }
 
-const SHOW_JSON = false
+const SHOW_JSON = true
 
 /**
  * A form to create or edit a campaign.

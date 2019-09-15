@@ -15,6 +15,7 @@ export interface FindReplaceCampaignContext {
 export function register(): Unsubscribable {
     const subscriptions = new Subscription()
     subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite))
+    console.log('REG')
     return subscriptions
 }
 

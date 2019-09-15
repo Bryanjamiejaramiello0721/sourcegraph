@@ -101,6 +101,7 @@ export const CampaignManagePage: React.FunctionComponent<Props> = ({ campaign, c
                 message: `Error updating campaign: ${err.message}`,
                 type: NotificationType.Error,
             })
+            throw err
         }
     }, [campaign.id, props.extensionsController, value])
 

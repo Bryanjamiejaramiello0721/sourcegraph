@@ -3,6 +3,7 @@ import { CampaignFormProps, CampaignForm } from '../../form/CampaignForm'
 import { LoadingSpinner } from '@sourcegraph/react-loading-spinner'
 import { RuleTemplateFormGroup } from '../../form/templates/RuleTemplateFormGroup'
 import { EditCampaignRuleTemplateFormGroupHeader } from './EditCampaignRuleTemplateFormGroupHeader'
+import { CampaignFormAddRuleTemplateDropdownButton } from '../../form/CampaignFormAddRuleTemplateDropdownButton'
 
 interface Props extends CampaignFormProps {}
 
@@ -24,6 +25,7 @@ export const EditCampaignForm: React.FunctionComponent<Props> = props => (
                             header={EditCampaignRuleTemplateFormGroupHeader}
                         />
                     ))}
+                <CampaignFormAddRuleTemplateDropdownButton {...props} />
                 <div className="form-group mt-4">
                     <button
                         type="submit"

@@ -8,13 +8,22 @@ interface Props extends CampaignFormControl {
     ruleIndex: number
 
     url: string
-    header?: React.FunctionComponent<{ url: string; template: null | RuleTemplate | ErrorLike }>
+    header?: React.FunctionComponent<
+        { url: string; template: null | RuleTemplate | ErrorLike; ruleIndex: number } & CampaignFormControl
+    >
 }
 
 /**
  * The form group for editing the template that defines a rule.
  */
-export const RuleTemplateFormGroup: React.FunctionComponent<Props> = ({ value, onChange, ruleIndex, url, header }) => {
+export const RuleTemplateFormGroup: React.FunctionComponent<Props> = ({
+    value,
+    onChange,
+    ruleIndex,
+    url,
+    header,
+    ...props
+}) => {
     const rule = (value.rules && value.rules[ruleIndex]) || null
     const ruleTemplate = rule && rule.template ? rule.template.template : null
 
@@ -36,9 +45,11 @@ export const RuleTemplateFormGroup: React.FunctionComponent<Props> = ({ value, o
 
     return (
         <>
-            {header && header({ url, template })}
-            {rule && TemplateForm && (
+            {header && header({ url, template, value, onChange, ruleIndex, ...props })}
+            {rule && TemplateForm ? (
                 <TemplateForm value={rule} onChange={onRuleChange} onCampaignChange={onChange} location={location} />
+            ) : (
+                <div className="alert alert-danger">Unable to show form for template.</div>
             )}
         </>
     )

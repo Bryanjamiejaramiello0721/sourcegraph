@@ -1,18 +1,24 @@
 import React from 'react'
-import { upperFirst } from 'lodash'
 import * as GQL from '../../../../../shared/src/graphql/schema'
 import { AbstractThreadListItem } from '../list/AbstractThreadListItem'
 import { ThreadStateIcon } from '../common/threadState/ThreadStateIcon'
 import { Link } from 'react-router-dom'
 import { displayRepoName } from '../../../../../shared/src/components/RepoFileLink'
 import CloseIcon from 'mdi-react/CloseIcon'
+import { ShowThreadPreviewModalButton } from '../preview/ShowThreadPreviewModalButton'
+import { ExtensionsControllerProps } from '../../../../../shared/src/extensions/controller'
+import { ThemeProps } from '../../../theme'
+import { PlatformContextProps } from '../../../../../shared/src/platform/context'
+import H from 'history'
 
-interface Props {
+interface Props extends ExtensionsControllerProps, PlatformContextProps, ThemeProps {
     threadUpdatePreview: GQL.IThreadUpdatePreview
 
     showRepository?: boolean
 
     className?: string
+    location: H.Location
+    history: H.History
 }
 
 const OPERATION_VERB: Record<GQL.ThreadUpdateOperation, string> = {
@@ -30,6 +36,7 @@ export const ThreadUpdatePreviewListItem: React.FunctionComponent<Props> = ({
     threadUpdatePreview: preview,
     showRepository = true,
     className,
+    ...props
 }) => (
     <AbstractThreadListItem
         left={
@@ -62,6 +69,7 @@ export const ThreadUpdatePreviewListItem: React.FunctionComponent<Props> = ({
                 )}
             </span>,
         ]}
+        right={<ShowThreadPreviewModalButton {...props} thread={(preview.newThread || preview.oldThread)!} />}
         className={className}
     />
 )

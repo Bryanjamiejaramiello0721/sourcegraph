@@ -9,29 +9,30 @@ const TEMPLATE_ID = 'findReplace'
 
 interface Props extends RuleTemplateComponentContext {}
 
-const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({ value, onChange, disabled, location }) => {
+const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({
+    value,
+    onChange,
+    onCampaignChange,
+    disabled,
+    location,
+}) => {
     const context: FindReplaceCampaignContext | undefined = value.template ? value.template.context : undefined
 
     const updateContext = useCallback(
         (update: Partial<FindReplaceCampaignContext>): void => {
             const newContext = { ...context, ...update }
             onChange({
-                isValid: !!newContext.matchTemplate,
+                name: 'Find-replace',
                 template: {
                     template: TEMPLATE_ID,
                     context: newContext,
                 },
-                rules: [
-                    {
-                        name: 'Find-replace',
-                        // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
-                        definition: JSON.stringify({
-                            type: 'ActionRule',
-                            context: newContext,
-                            action: 'findReplace.rewrite',
-                        } as RuleDefinition),
-                    },
-                ],
+                // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
+                definition: JSON.stringify({
+                    type: 'ActionRule',
+                    context: newContext,
+                    action: 'findReplace.rewrite',
+                } as RuleDefinition),
             })
         },
         [context, onChange]
@@ -60,10 +61,10 @@ const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({ value
             updateContext(update)
 
             if (value.name === '') {
-                onChange({ name: 'Find-replace' })
+                onCampaignChange({ name: 'Find-replace' })
             }
         }
-    }, [context, locationSearch, onChange, updateContext, value.name])
+    }, [context, locationSearch, onCampaignChange, onChange, updateContext, value.name])
 
     const onMatchTemplateChange = useCallback<React.ChangeEventHandler<HTMLTextAreaElement>>(
         e => updateContext({ matchTemplate: e.currentTarget.value }),
