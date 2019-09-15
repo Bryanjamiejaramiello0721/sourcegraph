@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
+	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend/graphqlutil"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/threads"
 	"github.com/sourcegraph/sourcegraph/pkg/api"
 )
@@ -141,7 +142,9 @@ func (v *gqlCampaignUpdatePreview) Threads(ctx context.Context) (*[]graphqlbacke
 			return nil, err
 		}
 		if old, ok := oldByRepo[repo]; ok {
-			if update := threads.NewGQLThreadUpdatePreviewForUpdate(old.Thread, new.ThreadPreview.Internal_Input(), repoComparison); update != nil {
+			if update, err := threads.NewGQLThreadUpdatePreviewForUpdate(ctx, old.Thread, new.ThreadPreview.Internal_Input(), repoComparison); err != nil {
+				return nil, err
+			} else if update != nil {
 				results = append(results, update)
 			}
 		} else {
@@ -156,7 +159,61 @@ func (v *gqlCampaignUpdatePreview) RepositoryComparisons(ctx context.Context) (*
 	if err != nil {
 		return nil, err
 	}
-	_ = old
-	panic("TODO!(sqs)")
-	return nil, nil
+
+	newThreads, err := v.getThreads(ctx)
+	if err != nil {
+		return nil, err
+	}
+	new := make([]graphqlbackend.RepositoryComparison, len(newThreads))
+	for i, t := range newThreads {
+		var err error
+		new[i], err = t.RepositoryComparison(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO!(sqs): doesnt support >1 thread per repo
+	mapByRepo := func(cs []graphqlbackend.RepositoryComparison) map[api.RepoID]graphqlbackend.RepositoryComparison {
+		byRepo := make(map[api.RepoID]graphqlbackend.RepositoryComparison, len(cs))
+		for _, c := range cs {
+			byRepo[c.BaseRepository().DBID()] = c
+		}
+		return byRepo
+	}
+	oldByRepo := mapByRepo(old)
+	newByRepo := mapByRepo(new)
+
+	var results []*graphqlbackend.RepositoryComparisonUpdatePreview
+	// TODO!(sqs): do full delta update, not just new/added
+	for repo, new := range newByRepo {
+		if old, ok := oldByRepo[repo]; !ok {
+			// Added.
+			results = append(results, &graphqlbackend.RepositoryComparisonUpdatePreview{
+				Repository_: new.HeadRepository(),
+				New_:        new,
+			})
+		} else {
+			// Check for change in diff.
+			oldDiff, err := old.FileDiffs(&graphqlutil.ConnectionArgs{}).RawDiff(ctx)
+			if err != nil {
+				return nil, err
+			}
+			newDiff, err := new.FileDiffs(&graphqlutil.ConnectionArgs{}).RawDiff(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if oldDiff != newDiff {
+				results = append(results, &graphqlbackend.RepositoryComparisonUpdatePreview{
+					Repository_: new.HeadRepository(),
+					Old_:        old,
+					New_:        new,
+				})
+			}
+		}
+	}
+	if len(results) == 0 {
+		return nil, nil
+	}
+	return &results, nil
 }

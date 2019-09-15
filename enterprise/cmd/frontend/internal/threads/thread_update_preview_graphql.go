@@ -1,18 +1,50 @@
 package threads
 
-import "github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
+import (
+	"context"
+
+	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
+	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend/graphqlutil"
+)
 
 func NewGQLThreadUpdatePreviewForCreation(input graphqlbackend.CreateThreadInput, repoComparison graphqlbackend.RepositoryComparison) graphqlbackend.ThreadUpdatePreview {
 	return &gqlThreadUpdatePreview{new: NewGQLThreadPreview(input, repoComparison)}
 }
 
-func NewGQLThreadUpdatePreviewForUpdate(old graphqlbackend.Thread, newInput graphqlbackend.CreateThreadInput, newRepoComparison graphqlbackend.RepositoryComparison) graphqlbackend.ThreadUpdatePreview {
+func NewGQLThreadUpdatePreviewForUpdate(ctx context.Context, old graphqlbackend.Thread, newInput graphqlbackend.CreateThreadInput, newRepoComparison graphqlbackend.RepositoryComparison) (graphqlbackend.ThreadUpdatePreview, error) {
+	// Determine if the update will actually change the thread.
+	//
 	// TODO!(sqs): handle more kinds of changes
+	var changed bool
 	if old.Title() == newInput.Title {
-		return nil // no change
+		changed = true
+	}
+	if !changed {
+		oldRepoComparison, err := old.RepositoryComparison(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if equal, err := repoComparisonDiffEqual(ctx, oldRepoComparison, newRepoComparison); err != nil {
+			return nil, err
+		} else if !equal {
+			changed = true
+		}
 	}
 
-	return &gqlThreadUpdatePreview{old: old, new: NewGQLThreadPreview(newInput, newRepoComparison)}
+	return &gqlThreadUpdatePreview{old: old, new: NewGQLThreadPreview(newInput, newRepoComparison)}, nil
+}
+
+func repoComparisonDiffEqual(ctx context.Context, a, b graphqlbackend.RepositoryComparison) (bool, error) {
+	// TODO!(sqs): check all fields
+	aDiff, err := a.FileDiffs(&graphqlutil.ConnectionArgs{}).RawDiff(ctx)
+	if err != nil {
+		return false, err
+	}
+	bDiff, err := b.FileDiffs(&graphqlutil.ConnectionArgs{}).RawDiff(ctx)
+	if err != nil {
+		return false, err
+	}
+	return aDiff == bDiff, nil
 }
 
 func NewGQLThreadUpdatePreviewForDeletion(old graphqlbackend.Thread) graphqlbackend.ThreadUpdatePreview {

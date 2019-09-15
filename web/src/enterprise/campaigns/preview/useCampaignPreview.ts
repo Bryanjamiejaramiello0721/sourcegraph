@@ -16,7 +16,7 @@ import { ThreadConnectionFiltersFragment } from '../../threads/list/useThreads'
 import { getCampaignExtensionData } from '../extensionData'
 import { RuleDefinition } from '../../rules/types'
 
-const RepositoryComparisonQuery = gql`
+export const RepositoryComparisonQuery = gql`
 baseRepository {
     id
     name

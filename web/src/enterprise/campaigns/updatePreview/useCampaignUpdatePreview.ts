@@ -19,8 +19,12 @@ import { queryGraphQL } from '../../../backend/graphql'
 import { getCampaignExtensionData } from '../extensionData'
 import { RuleDefinition } from '../../rules/types'
 import { ThreadFragment } from '../../threads/util/graphql'
-import { ThreadPreviewFragment } from '../preview/useCampaignPreview'
+import { ThreadPreviewFragment, RepositoryComparisonQuery } from '../preview/useCampaignPreview'
 import { ActorFragment } from '../../../actor/graphql'
+import {
+    diffStatFieldsFragment,
+    fileDiffHunkRangeFieldsFragment,
+} from '../../../repo/compare/RepositoryCompareDiffPage'
 
 export const CampaignUpdatePreviewFragment = gql`
     fragment CampaignUpdatePreviewFragment on CampaignUpdatePreview {
@@ -31,6 +35,7 @@ export const CampaignUpdatePreviewFragment = gql`
         oldDueDate
         newDueDate
         threads {
+            __typename
             oldThread {
                 ...ThreadFragment
             }
@@ -40,6 +45,14 @@ export const CampaignUpdatePreviewFragment = gql`
             operation
             oldTitle
             newTitle
+        }
+        repositoryComparisons {
+            old {
+                ${RepositoryComparisonQuery}
+            }
+            new {
+                ${RepositoryComparisonQuery}
+            }
         }
     }
 `
@@ -76,6 +89,8 @@ const queryCampaignUpdatePreview = ({
                         ${ThreadFragment}
                         ${ThreadPreviewFragment}
                         ${ActorFragment}
+                        ${fileDiffHunkRangeFieldsFragment}
+                        ${diffStatFieldsFragment}
                     `,
                     {
                         input: {
