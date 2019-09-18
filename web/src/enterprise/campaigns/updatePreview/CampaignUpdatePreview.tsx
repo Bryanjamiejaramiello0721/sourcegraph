@@ -11,6 +11,8 @@ import { useCampaignUpdatePreview } from './useCampaignUpdatePreview'
 import { isDefined } from '../../../../../shared/src/util/types'
 import { Timestamp } from '../../../components/time/Timestamp'
 import { ThreadUpdatePreviewList } from '../../threads/updatePreview/ThreadUpdatePreviewList'
+import { FileDiffNode } from '../../../repo/compare/FileDiffNode'
+import { parseRepoURI } from '../../../../../shared/src/util/url'
 
 interface Props extends ExtensionsControllerProps, PlatformContextProps, ThemeProps {
     campaign: Pick<GQL.ICampaign, 'id'>
@@ -106,6 +108,41 @@ export const CampaignUpdatePreview: React.FunctionComponent<Props> = ({ campaign
                                     }}
                                     className="mb-4"
                                 />
+                            </>
+                        )}
+                        {preview.repositoryComparisons && preview.repositoryComparisons.length > 0 && (
+                            <>
+                                <a id="changes" />
+                                <div className="card border-left border-right border-top mb-4">
+                                    <h4 className="card-header">File changes</h4>
+                                    {preview.repositoryComparisons.flatMap((c, i) =>
+                                        c.new
+                                            ? c.new.fileDiffs.nodes.map(d => (
+                                                  <FileDiffNode
+                                                      key={`${i}:${d.internalID}`}
+                                                      {...props}
+                                                      // TODO!(sqs): hack dont show full uri in diff header
+                                                      node={{
+                                                          ...d,
+                                                          oldPath: parseRepoURI(d.oldPath!).filePath!,
+                                                          newPath: parseRepoURI(d.newPath!).filePath!,
+                                                      }}
+                                                      base={{
+                                                          repoName: c.new!.baseRepository.name,
+                                                          repoID: c.new!.baseRepository.id,
+                                                      }}
+                                                      head={{
+                                                          repoName: c.new!.headRepository.name,
+                                                          repoID: c.new!.headRepository.id,
+                                                      }}
+                                                      showRepository={true}
+                                                      lineNumbers={false}
+                                                      className="mb-0 border-top-0 border-left-0 border-right-0"
+                                                  />
+                                              ))
+                                            : [null]
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>

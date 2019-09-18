@@ -37364,8 +37364,10 @@ exports.FIND_REPLACE_REWRITE_COMMAND = FIND_REPLACE_REWRITE_COMMAND;
 
 function register() {
   const subscriptions = new _rxjs.Subscription();
-  subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite));
-  console.log('REG');
+  setTimeout(() => {
+    subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite));
+    console.log('REG');
+  }, 500);
   return subscriptions;
 }
 
@@ -37379,10 +37381,10 @@ async function rewrite(context) {
       type: 'regexp'
     },
     files: {
-      includes: ['\\.(go|tsx?|java|py)$'],
+      // includes: ['\\.(go|tsx?|java|py)$'], // TODO!(sqs)
       type: 'regexp'
     },
-    maxResults: 10
+    maxResults: 50
   })).pipe((0, _operators.toArray)()).toPromise()));
   const docs = await Promise.all(results.map(async ({
     uri

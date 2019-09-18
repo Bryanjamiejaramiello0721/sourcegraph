@@ -1,6 +1,6 @@
 import { isEqual } from 'lodash'
 import { useEffect, useMemo, useState } from 'react'
-import { from, merge, Subject } from 'rxjs'
+import { from, merge, Subject, Observable } from 'rxjs'
 import {
     debounceTime,
     distinctUntilChanged,
@@ -38,9 +38,15 @@ export const CampaignUpdatePreviewFragment = gql`
             __typename
             oldThread {
                 ...ThreadFragment
+                repositoryComparison {
+                    ${RepositoryComparisonQuery}
+                }
             }
             newThread {
                 ...ThreadPreviewFragment
+                repositoryComparison {
+                    ${RepositoryComparisonQuery}
+                }
             }
             operation
             oldTitle
@@ -71,41 +77,38 @@ const queryCampaignUpdatePreview = ({
     input,
 }: ExtensionsControllerProps & {
     input: Pick<GQL.IUpdateCampaignInput, Exclude<keyof GQL.IUpdateCampaignInput, 'extensionData'>>
-}): Promise<GQL.ICampaignUpdatePreview> =>
+}): Observable<GQL.ICampaignUpdatePreview> =>
     getCampaignExtensionData(
         extensionsController,
         input.rules ? input.rules.map(rule => JSON.parse(rule.definition) as RuleDefinition) : []
-    )
-        .pipe(
-            switchMap(extensionData =>
-                queryGraphQL(
-                    gql`
-                        query CampaignUpdatePreview($input: CampaignUpdatePreviewInput!) {
-                            campaignUpdatePreview(input: $input) {
-                                ...CampaignUpdatePreviewFragment
-                            }
+    ).pipe(
+        switchMap(extensionData =>
+            queryGraphQL(
+                gql`
+                    query CampaignUpdatePreview($input: CampaignUpdatePreviewInput!) {
+                        campaignUpdatePreview(input: $input) {
+                            ...CampaignUpdatePreviewFragment
                         }
-                        ${CampaignUpdatePreviewFragment}
-                        ${ThreadFragment}
-                        ${ThreadPreviewFragment}
-                        ${ActorFragment}
-                        ${fileDiffHunkRangeFieldsFragment}
-                        ${diffStatFieldsFragment}
-                    `,
-                    {
-                        input: {
-                            campaign: input.id,
-                            update: { ...input, extensionData },
-                        },
-                    } as GQL.ICampaignUpdatePreviewOnQueryArguments
-                ).pipe(
-                    map(dataOrThrowErrors),
-                    map(data => data.campaignUpdatePreview)
-                )
-            ),
-            first()
+                    }
+                    ${CampaignUpdatePreviewFragment}
+                    ${ThreadFragment}
+                    ${ThreadPreviewFragment}
+                    ${ActorFragment}
+                    ${fileDiffHunkRangeFieldsFragment}
+                    ${diffStatFieldsFragment}
+                `,
+                {
+                    input: {
+                        campaign: input.id,
+                        update: { ...input, extensionData },
+                    },
+                } as GQL.ICampaignUpdatePreviewOnQueryArguments
+            ).pipe(
+                map(dataOrThrowErrors),
+                map(data => data.campaignUpdatePreview)
+            )
         )
-        .toPromise()
+    )
 
 /**
  * A React hook that observes a campaign update preview queried from the GraphQL API.
@@ -138,25 +141,33 @@ export const useCampaignUpdatePreview = (
             inputSubjectChanges.pipe(mapTo(LOADING)),
             inputSubjectChanges.pipe(
                 throttleTime(1000, undefined, { leading: true, trailing: true }),
-                switchMap(input => from(queryCampaignUpdatePreview({ extensionsController, input })))
+                switchMap(input => queryCampaignUpdatePreview({ extensionsController, input }))
             )
         )
             .pipe(catchError(err => [asError(err)]))
-            .subscribe(resultOrError => {
-                if (isErrorLike(resultOrError)) {
-                    setIsLoading(false)
-                    setResult(resultOrError)
-                    return
-                }
-                setResult(prevResult => {
-                    setIsLoading(resultOrError === LOADING)
-                    // Reuse last non-error result while loading, to reduce UI jitter.
-                    return resultOrError === LOADING && prevResult !== LOADING && !isErrorLike(prevResult)
-                        ? prevResult
-                        : resultOrError
-                })
-            })
-        return () => subscription.unsubscribe()
+            .subscribe(
+                resultOrError => {
+                    console.log('RESULT', resultOrError)
+                    if (isErrorLike(resultOrError)) {
+                        setIsLoading(false)
+                        setResult(resultOrError)
+                        return
+                    }
+                    setResult(prevResult => {
+                        setIsLoading(resultOrError === LOADING)
+                        // Reuse last non-error result while loading, to reduce UI jitter.
+                        return resultOrError === LOADING && prevResult !== LOADING && !isErrorLike(prevResult)
+                            ? prevResult
+                            : resultOrError
+                    })
+                },
+                err => console.error('ERR', err),
+                () => console.log('COMPLETE')
+            )
+        return () => {
+            console.log('XXXXXXX')
+            subscription.unsubscribe()
+        }
     }, [extensionsController, inputSubject])
     useEffect(() => inputSubject.next(input), [input, inputSubject])
     return [result, isLoading]

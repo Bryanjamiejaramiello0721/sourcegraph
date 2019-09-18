@@ -14,8 +14,10 @@ export interface FindReplaceCampaignContext {
 
 export function register(): Unsubscribable {
     const subscriptions = new Subscription()
-    subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite))
-    console.log('REG')
+    setTimeout(() => {
+        subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite))
+        console.log('REG')
+    }, 500)
     return subscriptions
 }
 
@@ -33,10 +35,10 @@ async function rewrite(context: FindReplaceCampaignContext): Promise<sourcegraph
                         type: 'regexp',
                     },
                     files: {
-                        includes: ['\\.(go|tsx?|java|py)$'], // TODO!(sqs)
+                        // includes: ['\\.(go|tsx?|java|py)$'], // TODO!(sqs)
                         type: 'regexp',
                     },
-                    maxResults: 10, // TODO!(sqs): increase
+                    maxResults: 50, // TODO!(sqs): increase
                 }
             )
         )

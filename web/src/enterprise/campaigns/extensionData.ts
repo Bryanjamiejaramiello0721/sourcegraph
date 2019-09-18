@@ -1,5 +1,5 @@
-import { combineLatest, Observable, of, from } from 'rxjs'
-import { debounceTime, map, switchMap } from 'rxjs/operators'
+import { combineLatest, Observable, of } from 'rxjs'
+import { debounceTime, map, switchMap, distinctUntilChanged } from 'rxjs/operators'
 import { DiagnosticWithType } from '../../../../shared/src/api/client/services/diagnosticService'
 import { fromDiagnostic } from '../../../../shared/src/api/types/diagnostic'
 import { ExtensionsControllerProps } from '../../../../shared/src/extensions/controller'
@@ -69,12 +69,16 @@ const getDiagnosticsAndFileDiffs = (
         }
 
         case 'ActionRule': {
-            return from(
-                extensionsController.services.commands.executeCommand({
-                    command: rule.action,
-                    arguments: [rule.context],
-                })
-            ).pipe(
+            // Handle the command not being registered initially (e.g., if the extension that registers it is being loaded in the background).
+            return extensionsController.services.commands.commands.pipe(
+                map(commands => commands.find(c => c.command === rule.action)),
+                distinctUntilChanged(),
+                switchMap(() =>
+                    extensionsController.services.commands.executeCommand({
+                        command: rule.action,
+                        arguments: [rule.context],
+                    })
+                ),
                 switchMap(async (edit: WorkspaceEdit) => {
                     const fileDiffs = await computeDiffFromEdits(extensionsController, [WorkspaceEdit.fromJSON(edit)])
                     return { fileDiffs, diagnostics: [] }

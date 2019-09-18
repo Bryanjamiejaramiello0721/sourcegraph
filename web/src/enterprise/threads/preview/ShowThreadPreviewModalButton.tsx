@@ -28,9 +28,7 @@ export const ShowThreadPreviewModalButton: React.FunctionComponent<Props> = ({
     history,
     ...props
 }) => {
-    const isOpen =
-        thread.__typename === 'ThreadPreview' &&
-        new URLSearchParams(location.hash.slice(1)).get('thread') === thread.internalID
+    const isOpen = new URLSearchParams(location.hash.slice(1)).get('thread') === thread.internalID
     const hideThreadModal = useCallback(() => {
         const hashParams = new URLSearchParams(location.hash.slice(1))
         hashParams.delete('thread')
@@ -43,7 +41,7 @@ export const ShowThreadPreviewModalButton: React.FunctionComponent<Props> = ({
         setTryBuildStatus(true)
     }, [])
 
-    return thread.__typename === 'ThreadPreview' ? (
+    return (
         <>
             <button
                 type="button"
@@ -83,7 +81,12 @@ export const ShowThreadPreviewModalButton: React.FunctionComponent<Props> = ({
                             {...props}
                             thread={thread}
                             titleRight={
-                                <button type="button" className="btn btn-link p-0" aria-label="Close" onClick={hideThreadModal}>
+                                <button
+                                    type="button"
+                                    className="btn btn-link p-0"
+                                    aria-label="Close"
+                                    onClick={hideThreadModal}
+                                >
                                     <CloseIcon className="icon-inline" /> Close preview
                                 </button>
                             }
@@ -95,5 +98,5 @@ export const ShowThreadPreviewModalButton: React.FunctionComponent<Props> = ({
                 )}
             </Modal>
         </>
-    ) : null
+    )
 }
