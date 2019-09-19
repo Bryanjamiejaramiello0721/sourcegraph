@@ -141,33 +141,25 @@ export const useCampaignUpdatePreview = (
             inputSubjectChanges.pipe(mapTo(LOADING)),
             inputSubjectChanges.pipe(
                 throttleTime(1000, undefined, { leading: true, trailing: true }),
-                switchMap(input => queryCampaignUpdatePreview({ extensionsController, input }))
+                switchMap(input =>
+                    queryCampaignUpdatePreview({ extensionsController, input }).pipe(catchError(err => [asError(err)]))
+                )
             )
-        )
-            .pipe(catchError(err => [asError(err)]))
-            .subscribe(
-                resultOrError => {
-                    console.log('RESULT', resultOrError)
-                    if (isErrorLike(resultOrError)) {
-                        setIsLoading(false)
-                        setResult(resultOrError)
-                        return
-                    }
-                    setResult(prevResult => {
-                        setIsLoading(resultOrError === LOADING)
-                        // Reuse last non-error result while loading, to reduce UI jitter.
-                        return resultOrError === LOADING && prevResult !== LOADING && !isErrorLike(prevResult)
-                            ? prevResult
-                            : resultOrError
-                    })
-                },
-                err => console.error('ERR', err),
-                () => console.log('COMPLETE')
-            )
-        return () => {
-            console.log('XXXXXXX')
-            subscription.unsubscribe()
-        }
+        ).subscribe(resultOrError => {
+            if (isErrorLike(resultOrError)) {
+                setIsLoading(false)
+                setResult(resultOrError)
+                return
+            }
+            setResult(prevResult => {
+                setIsLoading(resultOrError === LOADING)
+                // Reuse last non-error result while loading, to reduce UI jitter.
+                return resultOrError === LOADING && prevResult !== LOADING && !isErrorLike(prevResult)
+                    ? prevResult
+                    : resultOrError
+            })
+        })
+        return () => subscription.unsubscribe()
     }, [extensionsController, inputSubject])
     useEffect(() => inputSubject.next(input), [input, inputSubject])
     return [result, isLoading]

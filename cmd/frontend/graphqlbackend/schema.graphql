@@ -1152,6 +1152,21 @@ type Query {
 
     # A rule container by ID.
     ruleContainer(id: ID!): RuleContainer
+
+    # The result of running Comby.
+    comby(matchTemplate: String!, rule: String, rewriteTemplate: String): CombyPayload!
+}
+
+type CombyPayload {
+    results: [CombyResult!]!
+}
+
+type CombyResult {
+    # The file that was matched.
+    file: File2!
+
+    # The raw diff of the rewrite in unified diff format, or null if there was no rewrite.
+    rawDiff: String
 }
 
 # An object that can be labeled.

@@ -37349,11 +37349,7 @@ exports.FIND_REPLACE_REWRITE_COMMAND = void 0;
 
 var sourcegraph = _interopRequireWildcard(require("sourcegraph"));
 
-var _lodash = require("lodash");
-
 var _rxjs = require("rxjs");
-
-var _operators = require("rxjs/operators");
 
 var _util = require("./util");
 
@@ -37364,31 +37360,39 @@ exports.FIND_REPLACE_REWRITE_COMMAND = FIND_REPLACE_REWRITE_COMMAND;
 
 function register() {
   const subscriptions = new _rxjs.Subscription();
-  setTimeout(() => {
-    subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite));
-    console.log('REG');
-  }, 500);
+  subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite));
   return subscriptions;
 }
 
 async function rewrite(context) {
-  const results = (0, _lodash.flatten)((await (0, _rxjs.from)((0, _util.memoizedFindTextInFiles)({
-    pattern: context.matchTemplate,
-    type: 'regexp'
-  }, {
-    repositories: {
-      includes: [],
-      type: 'regexp'
-    },
-    files: {
-      // includes: ['\\.(go|tsx?|java|py)$'], // TODO!(sqs)
-      type: 'regexp'
-    },
-    maxResults: 50
-  })).pipe((0, _operators.toArray)()).toPromise()));
-  const docs = await Promise.all(results.map(async ({
-    uri
-  }) => sourcegraph.workspace.openTextDocument(new URL(uri))));
+  const {
+    data,
+    errors
+  } = await (0, _util.queryGraphQL)({
+    query: `
+                query Comby($matchTemplate: String!, rewriteTemplate: String!) {
+                    comby(matchTemplate: $matchTemplate, rewriteTemplate: $rewriteTemplate) {
+                        results {
+                            file {
+                                uri
+                            }
+                            rawDiff
+                        }
+                    }
+                }
+            `,
+    vars: {
+      matchTemplate: context.matchTemplate,
+      rewrite: context.rewriteTemplate
+    }
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(`GraphQL response error: ${errors[0].message}`);
+  }
+
+  const uris = data.comby.results.map(r => r.file.uri);
+  const docs = await Promise.all(uris.map(async uri => sourcegraph.workspace.openTextDocument(new URL(uri))));
   const edit = new sourcegraph.WorkspaceEdit();
 
   for (const doc of docs) {
@@ -37405,7 +37409,7 @@ async function rewrite(context) {
       if (i !== -1) {
         const start = doc.positionAt(i);
         const end = doc.positionAt(i + context.matchTemplate.length);
-        edit.replace(new URL(doc.uri), new sourcegraph.Range(start, end), context.rewrite);
+        edit.replace(new URL(doc.uri), new sourcegraph.Range(start, end), context.rewriteTemplate);
         i += context.matchTemplate.length;
       }
     }
@@ -37413,7 +37417,7 @@ async function rewrite(context) {
 
   return edit.toJSON();
 }
-},{"sourcegraph":"../node_modules/sourcegraph/src/index.js","lodash":"../node_modules/lodash/lodash.js","rxjs":"../node_modules/rxjs/_esm5/index.js","rxjs/operators":"../node_modules/rxjs/_esm5/operators/index.js","./util":"util.ts"}],"extension.ts":[function(require,module,exports) {
+},{"sourcegraph":"../node_modules/sourcegraph/src/index.js","rxjs":"../node_modules/rxjs/_esm5/index.js","./util":"util.ts"}],"extension.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {

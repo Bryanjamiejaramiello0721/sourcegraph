@@ -2,51 +2,46 @@ import * as sourcegraph from 'sourcegraph'
 import { flatten } from 'lodash'
 import { Subscription, Unsubscribable, from } from 'rxjs'
 import { toArray } from 'rxjs/operators'
-import { memoizedFindTextInFiles } from './util'
+import { memoizedFindTextInFiles, queryGraphQL } from './util'
 
 export const FIND_REPLACE_REWRITE_COMMAND = 'findReplace.rewrite'
 
 export interface FindReplaceCampaignContext {
     matchTemplate: string
     rule: string | undefined
-    rewrite: string
+    rewriteTemplate: string
 }
 
 export function register(): Unsubscribable {
     const subscriptions = new Subscription()
-    setTimeout(() => {
-        subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite))
-        console.log('REG')
-    }, 500)
+    subscriptions.add(sourcegraph.commands.registerCommand(FIND_REPLACE_REWRITE_COMMAND, rewrite))
     return subscriptions
 }
 
 async function rewrite(context: FindReplaceCampaignContext): Promise<sourcegraph.WorkspaceEdit> {
-    const results = flatten(
-        await from(
-            memoizedFindTextInFiles(
-                {
-                    pattern: context.matchTemplate,
-                    type: 'regexp',
-                },
-                {
-                    repositories: {
-                        includes: [],
-                        type: 'regexp',
-                    },
-                    files: {
-                        // includes: ['\\.(go|tsx?|java|py)$'], // TODO!(sqs)
-                        type: 'regexp',
-                    },
-                    maxResults: 50, // TODO!(sqs): increase
+    const { data, errors } = await queryGraphQL({
+        query: `
+                query Comby($matchTemplate: String!, rewriteTemplate: String!) {
+                    comby(matchTemplate: $matchTemplate, rewriteTemplate: $rewriteTemplate) {
+                        results {
+                            file {
+                                uri
+                            }
+                            rawDiff
+                        }
+                    }
                 }
-            )
-        )
-            .pipe(toArray())
-            .toPromise()
-    )
-
-    const docs = await Promise.all(results.map(async ({ uri }) => sourcegraph.workspace.openTextDocument(new URL(uri))))
+            `,
+        vars: {
+            matchTemplate: context.matchTemplate,
+            rewrite: context.rewriteTemplate,
+        },
+    })
+    if (errors && errors.length > 0) {
+        throw new Error(`GraphQL response error: ${errors[0].message}`)
+    }
+    const uris: string[] = data.comby.results.map(r => r.file.uri)
+    const docs = await Promise.all(uris.map(async uri => sourcegraph.workspace.openTextDocument(new URL(uri))))
 
     const edit = new sourcegraph.WorkspaceEdit()
     for (const doc of docs) {
@@ -61,7 +56,7 @@ async function rewrite(context: FindReplaceCampaignContext): Promise<sourcegraph
             if (i !== -1) {
                 const start = doc.positionAt(i)
                 const end = doc.positionAt(i + context.matchTemplate.length)
-                edit.replace(new URL(doc.uri), new sourcegraph.Range(start, end), context.rewrite)
+                edit.replace(new URL(doc.uri), new sourcegraph.Range(start, end), context.rewriteTemplate)
                 i += context.matchTemplate.length
             }
         }
