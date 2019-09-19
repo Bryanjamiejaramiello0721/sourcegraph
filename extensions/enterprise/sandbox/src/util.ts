@@ -5,7 +5,7 @@ import { first } from 'rxjs/operators'
 
 // localforage.clear()
 
-const USE_PERSISTENT_MEMOIZATION_CACHE = true
+const USE_PERSISTENT_MEMOIZATION_CACHE = false
 
 interface Cache<T> {
     get(key: string): Promise<T> | undefined

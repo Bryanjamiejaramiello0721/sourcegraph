@@ -2,6 +2,7 @@ package campaigns
 
 import (
 	"context"
+	"log"
 
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend/graphqlutil"
@@ -184,6 +185,9 @@ func (v *gqlCampaignUpdatePreview) RepositoryComparisons(ctx context.Context) (*
 	oldByRepo := mapByRepo(old)
 	newByRepo := mapByRepo(new)
 
+	log.Println("OLD by repo", oldByRepo)
+	log.Println("new by repo", newByRepo)
+
 	var results []*graphqlbackend.RepositoryComparisonUpdatePreview
 	// TODO!(sqs): do full delta update, not just new/added
 	for repo, new := range newByRepo {
@@ -203,6 +207,16 @@ func (v *gqlCampaignUpdatePreview) RepositoryComparisons(ctx context.Context) (*
 			if err != nil {
 				return nil, err
 			}
+
+			oldDiff, err = threads.StripDiffPathPrefixes(oldDiff)
+			if err != nil {
+				return nil, err
+			}
+			newDiff, err = threads.StripDiffPathPrefixes(newDiff)
+			if err != nil {
+				return nil, err
+			}
+
 			if oldDiff != newDiff {
 				results = append(results, &graphqlbackend.RepositoryComparisonUpdatePreview{
 					Repository_: new.HeadRepository(),

@@ -3,8 +3,10 @@ package threads
 import (
 	"context"
 
+	"github.com/sourcegraph/go-diff/diff"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend/graphqlutil"
+	"github.com/sourcegraph/sourcegraph/pkg/gituri"
 )
 
 func NewGQLThreadUpdatePreviewForCreation(input graphqlbackend.CreateThreadInput, repoComparison graphqlbackend.RepositoryComparison) graphqlbackend.ThreadUpdatePreview {
@@ -44,7 +46,41 @@ func repoComparisonDiffEqual(ctx context.Context, a, b graphqlbackend.Repository
 	if err != nil {
 		return false, err
 	}
+
+	// Treat 2 diffs as equal even if they are to/between different revisions.
+	aDiff, err = StripDiffPathPrefixes(aDiff)
+	if err != nil {
+		return false, err
+	}
+	bDiff, err = StripDiffPathPrefixes(bDiff)
+	if err != nil {
+		return false, err
+	}
+
 	return aDiff == bDiff, nil
+}
+
+// TODO!(sqs): this doesnt work because 2 diffs can be equivalent in a way that is hard to
+// determine, such as one has more lines of context than the other.
+func StripDiffPathPrefixes(rawDiff string) (string, error) {
+	fileDiffs, err := diff.ParseMultiFileDiff([]byte(rawDiff))
+	if err != nil {
+		return "", err
+	}
+	stripPathPrefix := func(uriStr string) string {
+		u, err := gituri.Parse(uriStr)
+		if err != nil {
+			return uriStr
+		}
+		return u.FilePath()
+	}
+	for _, fd := range fileDiffs {
+		fd.Extended = nil
+		fd.OrigName = stripPathPrefix(fd.OrigName)
+		fd.NewName = stripPathPrefix(fd.NewName)
+	}
+	b, err := diff.PrintMultiFileDiff(fileDiffs)
+	return string(b), err
 }
 
 func NewGQLThreadUpdatePreviewForDeletion(old graphqlbackend.Thread) graphqlbackend.ThreadUpdatePreview {

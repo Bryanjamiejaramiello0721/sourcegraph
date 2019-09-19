@@ -32,6 +32,7 @@ import { DiagnosticsIcon } from '../../../diagnostics/icons'
 import { isDefined } from '../../../../../shared/src/util/types'
 import SettingsIcon from 'mdi-react/SettingsIcon'
 import { CampaignManagePage } from './manage/CampaignManagePage'
+import { USE_CAMPAIGN_RULES } from '..'
 
 export interface CampaignAreaContext
     extends Pick<NamespaceCampaignsAreaContext, Exclude<keyof NamespaceCampaignsAreaContext, 'namespace'>> {
@@ -57,7 +58,7 @@ interface Props
 
 const LOADING = 'loading' as const
 
-const PAGE_CLASS_NAME = 'container my-5'
+const PAGE_CLASS_NAME = 'container my-4'
 
 /**
  * The area for a single campaign.
@@ -260,6 +261,7 @@ export const CampaignArea: React.FunctionComponent<Props> = ({
                                     <CampaignManagePage {...context} match={match} className={PAGE_CLASS_NAME} />
                                 </>
                             ),
+                            condition: () => USE_CAMPAIGN_RULES,
                         },
                     ]}
                     location={props.location}

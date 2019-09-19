@@ -8,6 +8,7 @@ import { Timeline } from '../../../components/timeline/Timeline'
 import { PublishDraftCampaignButton } from '../common/PublishDraftCampaign'
 import { IsDraftTimelineBox } from '../common/IsDraftTimelineBox'
 import { RulesTimelineBox } from '../common/RulesTimelineBox'
+import { USE_CAMPAIGN_RULES } from '..'
 
 interface Props extends Pick<CampaignAreaContext, 'campaign' | 'onCampaignUpdate'>, ExtensionsControllerProps {
     className?: string
@@ -39,8 +40,8 @@ export const CampaignOverview: React.FunctionComponent<Props> = ({
                 createdVerb="started campaign"
                 emptyBody="No description provided."
             />
-            <RulesTimelineBox ruleContainer={campaign} />
-            {campaign.isDraft && (
+            {USE_CAMPAIGN_RULES && <RulesTimelineBox ruleContainer={campaign} />}
+            {USE_CAMPAIGN_RULES && campaign.isDraft && (
                 <IsDraftTimelineBox
                     noun="campaign"
                     action={

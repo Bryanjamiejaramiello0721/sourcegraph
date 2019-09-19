@@ -30,9 +30,7 @@ export const CampaignTimeline: React.FunctionComponent<Props> = ({
                 <LoadingSpinner className="icon-inline" />
             ) : isErrorLike(timelineItems) ? (
                 <div className="alert alert-danger">{timelineItems.message}</div>
-            ) : timelineItems.totalCount === 0 ? (
-                <span className="text-muted">No events.</span>
-            ) : (
+            ) : timelineItems.totalCount === 0 ? null : (
                 <TimelineItems events={timelineItems} className={timelineItemsClassName} />
             )}
         </div>

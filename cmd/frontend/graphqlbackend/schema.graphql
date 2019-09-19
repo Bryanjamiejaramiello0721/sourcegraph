@@ -1163,7 +1163,7 @@ type CombyPayload {
 
 type CombyResult {
     # The file that was matched.
-    file: File2!
+    file: GitBlob!
 
     # The raw diff of the rewrite in unified diff format, or null if there was no rewrite.
     rawDiff: String

@@ -3,6 +3,7 @@ import * as GQL from '../../../../../shared/src/graphql/schema'
 import { Form } from '../../../components/Form'
 import { useLocalStorage } from '../../../util/useLocalStorage'
 import { CampaignFormCommonFields } from './CampaignFormCommonFields'
+import { USE_CAMPAIGN_RULES } from '..'
 
 export interface CampaignFormData
     extends Pick<GQL.ICreateCampaignInput, Exclude<keyof GQL.ICreateCampaignInput, 'extensionData'>> {
@@ -65,7 +66,7 @@ export const CampaignForm: React.FunctionComponent<
                     />
                 ),
             })}
-            {SHOW_JSON && (
+            {USE_CAMPAIGN_RULES && SHOW_JSON && (
                 <>
                     <div className="form-group mt-4">
                         <button

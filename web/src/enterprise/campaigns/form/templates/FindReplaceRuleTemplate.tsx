@@ -4,6 +4,7 @@ import React, { useCallback, useEffect } from 'react'
 import { RuleTemplate, RuleTemplateComponentContext } from '.'
 import { RuleDefinition } from '../../../rules/types'
 import TextareaAutosize from 'react-textarea-autosize'
+import { CampaignFormData } from '../CampaignForm'
 
 const TEMPLATE_ID = 'findReplace'
 
@@ -53,16 +54,20 @@ const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({
             if (rule !== null) {
                 update.rule = rule
             }
-            const rewrite = params.get('rewrite')
-            if (rewrite !== null) {
-                update.rewrite = rewrite
+            const rewriteTemplate = params.get('rewriteTemplate')
+            if (rewriteTemplate !== null) {
+                update.rewriteTemplate = rewriteTemplate
             }
 
             updateContext(update)
 
-            if (value.name === '') {
-                onCampaignChange({ name: 'Find-replace' })
+            const campaignUpdate: Partial<CampaignFormData> = {
+                isValid: update.matchTemplate !== undefined && update.rewriteTemplate !== undefined,
             }
+            if (value.name === '') {
+                campaignUpdate.name = 'Find-replace'
+            }
+            onCampaignChange(campaignUpdate)
         }
     }, [context, locationSearch, onCampaignChange, onChange, updateContext, value.name])
 
@@ -76,8 +81,8 @@ const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({
         [updateContext]
     )
 
-    const onRewriteChange = useCallback<React.ChangeEventHandler<HTMLTextAreaElement>>(
-        e => updateContext({ rewrite: e.currentTarget.value }),
+    const onRewriteTemplateChange = useCallback<React.ChangeEventHandler<HTMLTextAreaElement>>(
+        e => updateContext({ rewriteTemplate: e.currentTarget.value }),
         [updateContext]
     )
 
@@ -123,14 +128,14 @@ const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({
                 </p>
             </div>
             <div className="form-group">
-                <label htmlFor="campaign-template-form__rewrite">Rewrite</label>
+                <label htmlFor="campaign-template-form__rewriteTemplate">Rewrite template</label>
                 <TextareaAutosize
                     type="text"
-                    id="campaign-template-form__rewrite"
+                    id="campaign-template-form__rewriteTemplate"
                     className="form-control"
                     minRows={3}
-                    value={context.rewrite || ''}
-                    onChange={onRewriteChange}
+                    value={context.rewriteTemplate || ''}
+                    onChange={onRewriteTemplateChange}
                     disabled={disabled}
                 />
                 <p className="form-help text-muted small mb-0">

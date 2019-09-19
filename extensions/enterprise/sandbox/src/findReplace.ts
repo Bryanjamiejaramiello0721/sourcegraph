@@ -1,8 +1,6 @@
 import * as sourcegraph from 'sourcegraph'
-import { flatten } from 'lodash'
-import { Subscription, Unsubscribable, from } from 'rxjs'
-import { toArray } from 'rxjs/operators'
-import { memoizedFindTextInFiles, queryGraphQL } from './util'
+import { Subscription, Unsubscribable } from 'rxjs'
+import { queryGraphQL } from './util'
 
 export const FIND_REPLACE_REWRITE_COMMAND = 'findReplace.rewrite'
 
@@ -21,11 +19,17 @@ export function register(): Unsubscribable {
 async function rewrite(context: FindReplaceCampaignContext): Promise<sourcegraph.WorkspaceEdit> {
     const { data, errors } = await queryGraphQL({
         query: `
-                query Comby($matchTemplate: String!, rewriteTemplate: String!) {
-                    comby(matchTemplate: $matchTemplate, rewriteTemplate: $rewriteTemplate) {
+                query Comby($matchTemplate: String!, $rule: String, $rewriteTemplate: String!) {
+                    comby(matchTemplate: $matchTemplate, rule: $rule, rewriteTemplate: $rewriteTemplate) {
                         results {
                             file {
-                                uri
+                                path
+                                commit {
+                                    oid
+                                    repository {
+                                        name
+                                    }
+                                }
                             }
                             rawDiff
                         }
@@ -34,14 +38,17 @@ async function rewrite(context: FindReplaceCampaignContext): Promise<sourcegraph
             `,
         vars: {
             matchTemplate: context.matchTemplate,
-            rewrite: context.rewriteTemplate,
+            rule: context.rule,
+            rewriteTemplate: context.rewriteTemplate,
         },
     })
     if (errors && errors.length > 0) {
         throw new Error(`GraphQL response error: ${errors[0].message}`)
     }
-    const uris: string[] = data.comby.results.map(r => r.file.uri)
-    const docs = await Promise.all(uris.map(async uri => sourcegraph.workspace.openTextDocument(new URL(uri))))
+    const canonicalURLs: string[] = data.comby.results.map(
+        r => `git://${r.file.commit.repository.name}?${r.file.commit.oid}#${r.file.path}`
+    )
+    const docs = await Promise.all(canonicalURLs.map(async url => sourcegraph.workspace.openTextDocument(new URL(url))))
 
     const edit = new sourcegraph.WorkspaceEdit()
     for (const doc of docs) {

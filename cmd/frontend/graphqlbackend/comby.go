@@ -50,7 +50,7 @@ func runComby(ctx context.Context, arg *CombyQueryArgs, repoName string) ([]comb
 	}, &args{
 		matchTemplate:     arg.MatchTemplate,
 		rewriteTemplate:   s(arg.RewriteTemplate),
-		includeFileFilter: ".go",
+		includeFileFilter: ".ts,.tsx,.go",
 	})
 	if err != nil {
 		return nil, err

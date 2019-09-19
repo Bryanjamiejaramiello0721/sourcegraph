@@ -5,6 +5,8 @@ import TextareaAutosize from 'react-textarea-autosize'
 import { CampaignFormControl } from './CampaignForm'
 import { format, startOfDay, addDays, parse, addHours } from 'date-fns'
 
+const USE_START_DUE_DATES = false
+
 interface Props extends CampaignFormControl {
     autoFocus?: boolean
     className?: string
@@ -112,78 +114,82 @@ export const CampaignFormCommonFields: React.FunctionComponent<Props> = ({
                     disabled={disabled}
                 />
             </div>
-            <div className="form-group mb-2">
-                {rawStartDate === null ? (
-                    <button
-                        type="button"
-                        className="btn btn-link text-decoration-none pl-0 pr-1"
-                        onClick={onAddStartDateClick}
-                    >
-                        <PlusIcon className="icon-inline" /> Start date
-                    </button>
-                ) : (
-                    <>
-                        <label htmlFor="campaign-form-common-fields__startDate">Campaign start date</label>
-                        <div className="input-group">
-                            <input
-                                type="datetime-local"
-                                id="campaign-form-common-fields__startDate"
-                                className="form-control w-auto flex-0"
-                                required={true}
-                                min={minStartDate}
-                                value={rawStartDate}
-                                onChange={onStartDateChange}
-                                disabled={disabled}
-                            />
-                            <div className="input-group-append">
-                                <button
-                                    type="button"
-                                    className="btn btn-link text-decoration-none"
-                                    onClick={onClearStartDateClick}
-                                >
-                                    <CloseIcon className="icon-inline" /> Remove start date
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-            <div className="form-group">
-                {rawDueDate === null ? (
-                    <button
-                        type="button"
-                        className="btn btn-link text-decoration-none pl-0 pr-1"
-                        onClick={onAddDueDateClick}
-                    >
-                        <PlusIcon className="icon-inline" /> Due date
-                    </button>
-                ) : (
-                    <>
-                        <label htmlFor="campaign-form-common-fields__dueDate">Campaign due date</label>
-                        <div className="input-group">
-                            <input
-                                type="datetime-local"
-                                id="campaign-form-common-fields__dueDate"
-                                className="form-control w-auto flex-0"
-                                required={true}
-                                min={minDueDate}
-                                value={rawDueDate}
-                                onChange={onDueDateChange}
-                                disabled={disabled}
-                            />
-                            <div className="input-group-append">
-                                <button
-                                    type="button"
-                                    className="btn btn-link text-decoration-none"
-                                    onClick={onClearDueDateClick}
-                                >
-                                    <CloseIcon className="icon-inline" /> Remove due date
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
+            {USE_START_DUE_DATES && (
+                <>
+                    <div className="form-group mb-2">
+                        {rawStartDate === null ? (
+                            <button
+                                type="button"
+                                className="btn btn-link text-decoration-none pl-0 pr-1"
+                                onClick={onAddStartDateClick}
+                            >
+                                <PlusIcon className="icon-inline" /> Start date
+                            </button>
+                        ) : (
+                            <>
+                                <label htmlFor="campaign-form-common-fields__startDate">Campaign start date</label>
+                                <div className="input-group">
+                                    <input
+                                        type="datetime-local"
+                                        id="campaign-form-common-fields__startDate"
+                                        className="form-control w-auto flex-0"
+                                        required={true}
+                                        min={minStartDate}
+                                        value={rawStartDate}
+                                        onChange={onStartDateChange}
+                                        disabled={disabled}
+                                    />
+                                    <div className="input-group-append">
+                                        <button
+                                            type="button"
+                                            className="btn btn-link text-decoration-none"
+                                            onClick={onClearStartDateClick}
+                                        >
+                                            <CloseIcon className="icon-inline" /> Remove start date
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <div className="form-group">
+                        {rawDueDate === null ? (
+                            <button
+                                type="button"
+                                className="btn btn-link text-decoration-none pl-0 pr-1"
+                                onClick={onAddDueDateClick}
+                            >
+                                <PlusIcon className="icon-inline" /> Due date
+                            </button>
+                        ) : (
+                            <>
+                                <label htmlFor="campaign-form-common-fields__dueDate">Campaign due date</label>
+                                <div className="input-group">
+                                    <input
+                                        type="datetime-local"
+                                        id="campaign-form-common-fields__dueDate"
+                                        className="form-control w-auto flex-0"
+                                        required={true}
+                                        min={minDueDate}
+                                        value={rawDueDate}
+                                        onChange={onDueDateChange}
+                                        disabled={disabled}
+                                    />
+                                    <div className="input-group-append">
+                                        <button
+                                            type="button"
+                                            className="btn btn-link text-decoration-none"
+                                            onClick={onClearDueDateClick}
+                                        >
+                                            <CloseIcon className="icon-inline" /> Remove due date
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     )
 }

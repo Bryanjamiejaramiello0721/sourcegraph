@@ -18,6 +18,7 @@ import { EMPTY_RULE_TEMPLATE_ID } from '../../form/templates'
 import { RuleDefinition } from '../../../rules/types'
 import { useLocalStorage } from '../../../../util/useLocalStorage'
 import { NewCampaignForm } from './NewCampaignForm'
+import { USE_CAMPAIGN_RULES } from '../..'
 
 export const createCampaign = (input: GQL.ICreateCampaignInput): Promise<GQL.ICampaign> =>
     mutateGraphQL(
@@ -79,7 +80,7 @@ export const CampaignsNewPage: React.FunctionComponent<Props> = ({
         () => ({
             name: '',
             namespace: namespace.id,
-            draft: defaultDraft,
+            draft: USE_CAMPAIGN_RULES ? defaultDraft : false,
             isValid: true,
             rules: ruleTemplateID
                 ? [{ name: '', template: { template: ruleTemplateID, context: undefined }, definition: '{}' }]
@@ -133,12 +134,16 @@ export const CampaignsNewPage: React.FunctionComponent<Props> = ({
                     location={location}
                     className="flex-1"
                 />
-                {ruleTemplateID && ruleTemplateID !== EMPTY_RULE_TEMPLATE_ID && value && value.isValid && (
-                    <>
-                        <hr className="my-5" />
-                        <CampaignPreview {...props} data={value} location={location} />
-                    </>
-                )}
+                {USE_CAMPAIGN_RULES &&
+                    ruleTemplateID &&
+                    ruleTemplateID !== EMPTY_RULE_TEMPLATE_ID &&
+                    value &&
+                    value.isValid && (
+                        <>
+                            <hr className="my-5" />
+                            <CampaignPreview {...props} data={value} location={location} />
+                        </>
+                    )}
             </div>
         </>
     )

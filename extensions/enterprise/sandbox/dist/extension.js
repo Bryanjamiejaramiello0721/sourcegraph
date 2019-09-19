@@ -37005,7 +37005,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
 
 // localforage.clear()
-const USE_PERSISTENT_MEMOIZATION_CACHE = true;
+const USE_PERSISTENT_MEMOIZATION_CACHE = false;
 
 const createMemoizationCache = () => {
   const map = new Map();
@@ -37370,11 +37370,17 @@ async function rewrite(context) {
     errors
   } = await (0, _util.queryGraphQL)({
     query: `
-                query Comby($matchTemplate: String!, rewriteTemplate: String!) {
-                    comby(matchTemplate: $matchTemplate, rewriteTemplate: $rewriteTemplate) {
+                query Comby($matchTemplate: String!, $rule: String, $rewriteTemplate: String!) {
+                    comby(matchTemplate: $matchTemplate, rule: $rule, rewriteTemplate: $rewriteTemplate) {
                         results {
                             file {
-                                uri
+                                path
+                                commit {
+                                    oid
+                                    repository {
+                                        name
+                                    }
+                                }
                             }
                             rawDiff
                         }
@@ -37383,7 +37389,8 @@ async function rewrite(context) {
             `,
     vars: {
       matchTemplate: context.matchTemplate,
-      rewrite: context.rewriteTemplate
+      rule: context.rule,
+      rewriteTemplate: context.rewriteTemplate
     }
   });
 
@@ -37391,8 +37398,8 @@ async function rewrite(context) {
     throw new Error(`GraphQL response error: ${errors[0].message}`);
   }
 
-  const uris = data.comby.results.map(r => r.file.uri);
-  const docs = await Promise.all(uris.map(async uri => sourcegraph.workspace.openTextDocument(new URL(uri))));
+  const canonicalURLs = data.comby.results.map(r => `git://${r.file.commit.repository.name}?${r.file.commit.oid}#${r.file.path}`);
+  const docs = await Promise.all(canonicalURLs.map(async url => sourcegraph.workspace.openTextDocument(new URL(url))));
   const edit = new sourcegraph.WorkspaceEdit();
 
   for (const doc of docs) {

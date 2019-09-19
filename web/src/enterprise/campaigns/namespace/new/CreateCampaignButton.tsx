@@ -4,6 +4,7 @@ import { ButtonDropdown, DropdownToggle, DropdownMenu, DropdownItem } from 'reac
 import { CheckableDropdownItem } from '../../../../components/CheckableDropdownItem'
 import { Timestamp } from '../../../../components/time/Timestamp'
 import { isAfter } from 'date-fns/esm'
+import { USE_CAMPAIGN_RULES } from '../..'
 
 interface Props {
     value: Pick<CampaignFormData, 'draft' | 'startDate'>
@@ -28,7 +29,7 @@ export const CreateCampaignButton: React.FunctionComponent<Props> = ({
     const onCreateClick = useCallback(() => onChange({ draft: false }), [onChange])
     const onDraftClick = useCallback(() => onChange({ draft: true }), [onChange])
 
-    return (
+    return USE_CAMPAIGN_RULES ? (
         <ButtonDropdown isOpen={isOpen} toggle={toggleIsOpen} disabled={disabled}>
             <button type="submit" disabled={disabled} className={className}>
                 {Icon && <Icon className="icon-inline" />}{' '}
@@ -67,5 +68,9 @@ export const CreateCampaignButton: React.FunctionComponent<Props> = ({
                 </CheckableDropdownItem>
             </DropdownMenu>
         </ButtonDropdown>
+    ) : (
+        <button type="submit" disabled={disabled} className={className}>
+            {Icon && <Icon className="icon-inline" />} Create campaign
+        </button>
     )
 }

@@ -10,6 +10,7 @@ import {
     switchMap,
     throttleTime,
     catchError,
+    startWith,
 } from 'rxjs/operators'
 import { ExtensionsControllerProps } from '../../../../../shared/src/extensions/controller'
 import { dataOrThrowErrors, gql } from '../../../../../shared/src/graphql/graphql'
@@ -137,28 +138,28 @@ export const useCampaignUpdatePreview = (
                 debounceTime(2000)
             )
         )
-        const subscription = merge(
-            inputSubjectChanges.pipe(mapTo(LOADING)),
-            inputSubjectChanges.pipe(
+        const subscription = inputSubjectChanges
+            .pipe(
                 throttleTime(1000, undefined, { leading: true, trailing: true }),
                 switchMap(input =>
                     queryCampaignUpdatePreview({ extensionsController, input }).pipe(catchError(err => [asError(err)]))
-                )
+                ),
+                startWith(LOADING)
             )
-        ).subscribe(resultOrError => {
-            if (isErrorLike(resultOrError)) {
-                setIsLoading(false)
-                setResult(resultOrError)
-                return
-            }
-            setResult(prevResult => {
-                setIsLoading(resultOrError === LOADING)
-                // Reuse last non-error result while loading, to reduce UI jitter.
-                return resultOrError === LOADING && prevResult !== LOADING && !isErrorLike(prevResult)
-                    ? prevResult
-                    : resultOrError
+            .subscribe(resultOrError => {
+                if (isErrorLike(resultOrError)) {
+                    setIsLoading(false)
+                    setResult(resultOrError)
+                    return
+                }
+                setResult(prevResult => {
+                    setIsLoading(resultOrError === LOADING)
+                    // Reuse last non-error result while loading, to reduce UI jitter.
+                    return resultOrError === LOADING && prevResult !== LOADING && !isErrorLike(prevResult)
+                        ? prevResult
+                        : resultOrError
+                })
             })
-        })
         return () => subscription.unsubscribe()
     }, [extensionsController, inputSubject])
     useEffect(() => inputSubject.next(input), [input, inputSubject])

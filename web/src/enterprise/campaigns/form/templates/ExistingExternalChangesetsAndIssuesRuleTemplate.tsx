@@ -4,9 +4,7 @@ import { RuleTemplate, RuleTemplateComponentContext } from '.'
 
 interface Props extends RuleTemplateComponentContext {}
 
-const ExistingExternalChangesetsAndIssuesCampaignTemplateForm: React.FunctionComponent<Props> = ({}) => (
-    <p>hello world</p>
-)
+const ExistingExternalChangesetsAndIssuesCampaignTemplateForm: React.FunctionComponent<Props> = () => null
 
 export const ExistingExternalChangesetsAndIssuesRuleTemplate: RuleTemplate = {
     id: 'existingExternalChangesetsAndIssues',

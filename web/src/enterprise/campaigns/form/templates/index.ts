@@ -9,6 +9,7 @@ import { JavaArtifactDependencyRuleTemplate } from './JavaArtifactDependencyRule
 import { PackageJsonDependencyRuleTemplate } from './PackageJsonDependencyRuleTemplate'
 import { TriageSearchResultsRuleTemplate } from './TriageSearchResultsRuleTemplate'
 import { CampaignFormData } from '../CampaignForm'
+import { USE_CAMPAIGN_RULES } from '../..'
 
 export interface RuleTemplateComponentContext {
     value: GQL.INewRuleInput
@@ -33,12 +34,16 @@ export interface RuleTemplate {
 export const EMPTY_RULE_TEMPLATE_ID = 'empty'
 
 export const RULE_TEMPLATES: RuleTemplate[] = [
-    JavaArtifactDependencyRuleTemplate,
-    PackageJsonDependencyRuleTemplate,
-    ESLintRuleTemplate,
-    CodeOwnershipValidationRuleTemplate,
-    FindReplaceRuleTemplate,
-    TriageSearchResultsRuleTemplate,
+    ...(USE_CAMPAIGN_RULES
+        ? [
+              JavaArtifactDependencyRuleTemplate,
+              PackageJsonDependencyRuleTemplate,
+              ESLintRuleTemplate,
+              CodeOwnershipValidationRuleTemplate,
+              FindReplaceRuleTemplate,
+              TriageSearchResultsRuleTemplate,
+          ]
+        : []),
     ExistingExternalChangesetsAndIssuesRuleTemplate,
     { id: EMPTY_RULE_TEMPLATE_ID, title: '', renderForm: () => null, isEmpty: true },
 ]
