@@ -1,1 +1,1 @@
-export const USE_CAMPAIGN_RULES = true
+export const USE_CAMPAIGN_RULES = false
