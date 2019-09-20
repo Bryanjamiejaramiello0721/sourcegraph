@@ -37082,7 +37082,7 @@ const queryGraphQL = memoizeAsync(async ({
 }, arg => JSON.stringify({
   query: arg.query,
   vars: arg.vars
-}));
+}) + Math.random());
 exports.queryGraphQL = queryGraphQL;
 
 const _findTextInFiles = memoizeAsync(args => (0, _rxjs.from)(sourcegraph.search.findTextInFiles(...args)).pipe((0, _operators.first)()).toPromise(), args => JSON.stringify(args));

@@ -35,8 +35,11 @@ const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({
                     action: 'findReplace.rewrite',
                 } as RuleDefinition),
             })
+            onCampaignChange({
+                isValid: newContext.matchTemplate !== undefined && newContext.rewriteTemplate !== undefined,
+            })
         },
-        [context, onChange]
+        [context, onCampaignChange, onChange]
     )
 
     // Set defaults.
@@ -58,16 +61,11 @@ const FindReplaceCampaignTemplateForm: React.FunctionComponent<Props> = ({
             if (rewriteTemplate !== null) {
                 update.rewriteTemplate = rewriteTemplate
             }
-
             updateContext(update)
 
-            const campaignUpdate: Partial<CampaignFormData> = {
-                isValid: update.matchTemplate !== undefined && update.rewriteTemplate !== undefined,
-            }
             if (value.name === '') {
-                campaignUpdate.name = 'Find-replace'
+                onCampaignChange({ name: 'Find-replace' })
             }
-            onCampaignChange(campaignUpdate)
         }
     }, [context, locationSearch, onCampaignChange, onChange, updateContext, value.name])
 

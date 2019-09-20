@@ -84,7 +84,7 @@ export const queryGraphQL = memoizeAsync(
     async ({ query, vars }: { query: string; vars: { [name: string]: any } }): Promise<any> => {
         return sourcegraph.commands.executeCommand<any>('queryGraphQL', query, vars)
     },
-    arg => JSON.stringify({ query: arg.query, vars: arg.vars })
+    arg => JSON.stringify({ query: arg.query, vars: arg.vars }) + Math.random()
 )
 
 const _findTextInFiles = memoizeAsync(

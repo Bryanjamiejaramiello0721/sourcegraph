@@ -20,6 +20,8 @@ func (schemaResolver) Comby(ctx context.Context, arg *struct {
 	repoNames := []string{
 		"github.com/sd9/about",
 		"github.com/sd9/codeintellify",
+		"github.com/sd9/sourcegraph-lightstep",
+		"github.com/sd9/TypeScriptSamples",
 	}
 	var allResults []combyResult
 	for _, repoName := range repoNames {
@@ -50,7 +52,7 @@ func runComby(ctx context.Context, arg *CombyQueryArgs, repoName string) ([]comb
 	}, &args{
 		matchTemplate:     arg.MatchTemplate,
 		rewriteTemplate:   s(arg.RewriteTemplate),
-		includeFileFilter: ".ts,.tsx,.go",
+		includeFileFilter: ".test.ts,.ts,.tsx,.go",
 	})
 	if err != nil {
 		return nil, err
