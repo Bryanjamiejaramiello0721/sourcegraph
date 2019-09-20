@@ -382,6 +382,9 @@ type Mutation {
     # Create a thread in a repository. Returns the newly created thread.
     createThread(input: CreateThreadInput!): Thread!
 
+    # Import threads from an external service. Returns the threads.
+    importThreadsFromExternalService(input: ImportThreadsFromExternalServiceInput!): [Thread!]!
+
     # Update a thread. Returns the updated thread.
     updateThread(input: UpdateThreadInput!): Thread!
 
@@ -4378,6 +4381,26 @@ input CreateThreadInput {
 
     # Diagnostics to associate with the thread.
     rawDiagnostics: [String!]
+}
+
+# Input arguments for importing threads from an external service.
+#
+# EXPERIMENTAL
+input ImportThreadsFromExternalServiceInput {
+    # Import a single thread by repository and number.
+    byRepositoryAndNumber: ExternalThreadRepositoryAndNumber
+
+    # Import all threads that match a query on the external service.
+    byQuery: String
+}
+
+# A specification of a thread on an external service by its repository and number.
+input ExternalThreadRepositoryAndNumber {
+    # The name of the repository that contains the thread.
+    repositoryName: String!
+
+    # The issue or pull request number.
+    number: Int!
 }
 
 # Input arguments for updating a thread.

@@ -40,7 +40,10 @@ func createOrGetExistingGitHubPullRequest(ctx context.Context, repoID api.RepoID
 	if err != nil {
 		return 0, err
 	}
+	return getOrUpdateExistingGitHubIssueOrPullRequest(ctx, repoID, externalServiceID, pull, data.ExistingThreadID)
+}
 
+func getOrUpdateExistingGitHubIssueOrPullRequest(ctx context.Context, repoID api.RepoID, externalServiceID int64, pull *githubIssueOrPullRequest, existingThreadID int64) (threadID int64, err error) {
 	externalThread := newExternalThread(pull, repoID, externalServiceID)
 
 	// If thread exists externally, reuse that.
@@ -50,12 +53,12 @@ func createOrGetExistingGitHubPullRequest(ctx context.Context, repoID api.RepoID
 	if err == nil {
 		threadID = thread.ID
 	} else if err == errThreadNotFound {
-		if data.ExistingThreadID == 0 {
+		if existingThreadID == 0 {
 			threadID, err = dbCreateExternalThread(ctx, nil, externalThread)
 		} else {
 			// Thread does exist on Sourcegraph. Link it to the newly created external thread.
 			tmp := false
-			if _, err := (dbThreads{}).Update(ctx, data.ExistingThreadID, dbThreadUpdate{
+			if _, err := (dbThreads{}).Update(ctx, existingThreadID, dbThreadUpdate{
 				// TODO!(sqs): dedupe with githubIssueOrPullRequestToThread
 				BaseRef:    &pull.BaseRefName,
 				BaseRefOID: &pull.BaseRefOid,
@@ -68,7 +71,7 @@ func createOrGetExistingGitHubPullRequest(ctx context.Context, repoID api.RepoID
 			}); err != nil {
 				return 0, err
 			}
-			threadID = data.ExistingThreadID
+			threadID = existingThreadID
 		}
 	}
 	return threadID, err

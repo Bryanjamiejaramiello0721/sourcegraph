@@ -2,11 +2,14 @@ package threads
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/sourcegraph/sourcegraph/cmd/frontend/backend"
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/graphqlbackend"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments"
 	"github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/comments/commentobjectdb"
+	"github.com/sourcegraph/sourcegraph/pkg/api"
 )
 
 func (GraphQLResolver) CreateThread(ctx context.Context, arg *graphqlbackend.CreateThreadArgs) (graphqlbackend.Thread, error) {
@@ -49,6 +52,49 @@ func (GraphQLResolver) CreateThread(ctx context.Context, arg *graphqlbackend.Cre
 	}
 
 	return gqlThread, nil
+}
+
+func (GraphQLResolver) ImportThreadsFromExternalService(ctx context.Context, arg *graphqlbackend.ImportThreadsFromExternalServiceArgs) ([]graphqlbackend.Thread, error) {
+	threadsByDBIDs := func(ctx context.Context, threadIDs []int64) ([]graphqlbackend.Thread, error) {
+		threads := make([]graphqlbackend.Thread, len(threadIDs))
+		for i, threadID := range threadIDs {
+			thread, err := threadByDBID(ctx, threadID)
+			if err != nil {
+				return nil, err
+			}
+			threads[i] = thread
+		}
+		return threads, nil
+	}
+
+	switch {
+	case arg.Input.ByRepositoryAndNumber != nil:
+		spec := arg.Input.ByRepositoryAndNumber
+		repoName := spec.RepositoryName
+		// TODO!(sqs): hacky
+		if !strings.HasPrefix(repoName, "github.com/") {
+			repoName = "github.com/" + repoName
+		}
+		repo, err := backend.Repos.GetByName(ctx, api.RepoName(repoName))
+		if err != nil {
+			return nil, err
+		}
+		threadID, err := createOrGetExistingGitHubIssueOrPullRequest(ctx, repo.ID, repo.ExternalRepo, spec.Number)
+		if err != nil {
+			return nil, err
+		}
+		return threadsByDBIDs(ctx, []int64{threadID})
+
+	case arg.Input.ByQuery != nil:
+		threadIDs, err := createOrGetExistingGitHubThreadsByQuery(ctx, *arg.Input.ByQuery)
+		if err != nil {
+			return nil, err
+		}
+		return threadsByDBIDs(ctx, threadIDs)
+
+	default:
+		return nil, errors.New("no threads specified to import from external service")
+	}
 }
 
 func (GraphQLResolver) UpdateThread(ctx context.Context, arg *graphqlbackend.UpdateThreadArgs) (graphqlbackend.Thread, error) {

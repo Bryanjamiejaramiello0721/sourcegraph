@@ -107,6 +107,7 @@ $hr-border-color: var(--border-color);
 $hr-margin-y: 0.25rem;
 
 $code-bg: var(--body-bg);
+$zindex-sticky: 998;
 
 @import 'bootstrap/scss/functions';
 @import 'bootstrap/scss/variables';

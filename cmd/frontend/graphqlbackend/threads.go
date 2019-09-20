@@ -73,6 +73,13 @@ func (r schemaResolver) CreateThread(ctx context.Context, arg *CreateThreadArgs)
 	return Threads.CreateThread(ctx, arg)
 }
 
+func (r schemaResolver) ImportThreadsFromExternalService(ctx context.Context, arg *ImportThreadsFromExternalServiceArgs) ([]Thread, error) {
+	if Threads == nil {
+		return nil, errThreadsNotImplemented
+	}
+	return Threads.ImportThreadsFromExternalService(ctx, arg)
+}
+
 func (r schemaResolver) UpdateThread(ctx context.Context, arg *UpdateThreadArgs) (Thread, error) {
 	if Threads == nil {
 		return nil, errThreadsNotImplemented
@@ -108,6 +115,7 @@ type ThreadsResolver interface {
 
 	// Mutations
 	CreateThread(context.Context, *CreateThreadArgs) (Thread, error)
+	ImportThreadsFromExternalService(context.Context, *ImportThreadsFromExternalServiceArgs) ([]Thread, error)
 	UpdateThread(context.Context, *UpdateThreadArgs) (Thread, error)
 	MarkThreadAsReady(context.Context, *MarkThreadAsReadyArgs) (Thread, error)
 	PublishThreadToExternalService(context.Context, *PublishThreadToExternalServiceArgs) (Thread, error)
@@ -149,6 +157,16 @@ type CreateThreadInput struct {
 
 type CreateThreadArgs struct {
 	Input CreateThreadInput
+}
+
+type ImportThreadsFromExternalServiceArgs struct {
+	Input struct {
+		ByRepositoryAndNumber *struct {
+			RepositoryName string
+			Number         int32
+		}
+		ByQuery *string
+	}
 }
 
 type UpdateThreadArgs struct {

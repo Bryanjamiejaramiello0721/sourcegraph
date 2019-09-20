@@ -115,8 +115,12 @@ func githubIssueCommentToExternalComment(v *githubIssueComment) *comments.Extern
 }
 
 type githubIssueOrPullRequest struct {
-	Typename          string       `json:"__typename"`
-	ID                graphql.ID   `json:"id"`
+	Typename   string     `json:"__typename"`
+	ID         graphql.ID `json:"id"`
+	Repository struct {
+		ID            graphql.ID `json:"id"`
+		NameWithOwner string     `json:"nameWithOwner"`
+	} `json:"repository"`
 	Number            int          `json:"number"`
 	Title             string       `json:"title"`
 	Body              string       `json:"body"`
@@ -156,6 +160,10 @@ const (
 	githubIssueOrPullRequestCommonQuery = `
 __typename
 id
+repository {
+	id
+	nameWithOwner
+}
 number
 title
 body

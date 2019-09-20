@@ -57,7 +57,7 @@ export const ConnectionListFilterQueryInput: React.FunctionComponent<Props> = ({
         <Form className={`form ${className}`} onSubmit={onSubmit}>
             <div
                 className={`input-group ${prependSearchIcon ? 'bg-form-control border rounded' : ''} ${
-                    isFocused ? 'form-control-focus' : ''
+                    prependSearchIcon && isFocused ? 'form-control-focus' : ''
                 }`}
             >
                 {beforeInputFragment || (

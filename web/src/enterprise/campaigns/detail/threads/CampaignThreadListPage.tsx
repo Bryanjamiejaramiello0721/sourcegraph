@@ -5,9 +5,9 @@ import { PlatformContextProps } from '../../../../../../shared/src/platform/cont
 import { useQueryParameter } from '../../../../util/useQueryParameter'
 import { ThemeProps } from '../../../../theme'
 import { CampaignAreaContext } from '../CampaignArea'
-import { AddThreadToCampaignDropdownButton } from './AddThreadToCampaignDropdownButton'
 import { CampaignThreadList } from './CampaignThreadList'
 import { useCampaignThreads } from './useCampaignThreads'
+import { ImportThreadsFromExternalServiceToCampaignDropdownButton } from './ImportThreadsFromExternalServiceToCampaignDropdownButton'
 
 interface Props
     extends Pick<CampaignAreaContext, 'campaign'>,
@@ -35,7 +35,13 @@ export const CampaignThreadListPage: React.FunctionComponent<Props> = ({ campaig
                 query={query}
                 onQueryChange={onQueryChange}
                 locationWithQuery={locationWithQuery}
-                action={<AddThreadToCampaignDropdownButton {...props} campaign={campaign} onChange={onThreadsUpdate} />}
+                action={
+                    <ImportThreadsFromExternalServiceToCampaignDropdownButton
+                        {...props}
+                        campaign={campaign}
+                        onChange={onThreadsUpdate}
+                    />
+                }
             />
         </div>
     )
