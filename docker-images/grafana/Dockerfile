@@ -1,4 +1,4 @@
-FROM grafana/grafana:6.3.3@sha256:926446fd803964b7aa57684a4a3a42c76eac8ecaf7ed8b80bad9013706496d88
+FROM grafana/grafana:6.3.6@sha256:2a61d332d673170b227e08acd75160d694b7aaeedd7a39f8ca2fd77a2a2d3cda
 
 LABEL org.opencontainers.image.url=https://sourcegraph.com/
 LABEL org.opencontainers.image.source=https://github.com/sourcegraph/sourcegraph/
